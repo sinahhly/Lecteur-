@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <title>Lecteur de chapitres</title>
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Lecteur">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
@@ -442,6 +442,11 @@ dialog[open]::backdrop{animation:fadeIn .2s ease}
 .tr{display:none!important}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 </style>
+<style>
+/* Plein écran iPhone : le contenu passe sous la barre d'état ; voile sombre pour garder l'heure et la batterie lisibles */
+body::before{content:"";position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);z-index:100;pointer-events:none;
+  background:linear-gradient(to bottom,rgba(0,0,0,.6),rgba(0,0,0,0))}
+</style>
 </head>
 <body>
 
@@ -496,7 +501,7 @@ dialog[open]::backdrop{animation:fadeIn .2s ease}
     </div>
   </div>
   <input id="files" type="file" accept="image/*" multiple hidden>
-  <input id="pdfFile" type="file" accept="application/pdf" hidden>
+  <input id="pdfFile" type="file" accept="application/pdf" multiple hidden>
   </div>
 </main>
 
@@ -899,7 +904,7 @@ let gToken = null, gTokenExp = 0, gTokenClient = null;
 function loadScriptOnce(src) {
   return new Promise((res, rej) => {
     if (document.querySelector('script[src="' + src + '"]')) { res(); return; }
-    const s = document.createElement('script'); s.src = src; s.onload = () => res(); s.onerror = () => rej(new Error('script'));
+    const s = document.createElement('script'); s.src = src; s.onload = () => res(); s.onerror = () => { s.remove(); rej(new Error('chargement du script impossible')); };
     document.head.appendChild(s);
   });
 }
@@ -3016,7 +3021,7 @@ function ensurePdfJs() {
   if (pdfjsReady) return pdfjsReady;
   pdfjsReady = loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js').then(() => {
     window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-  });
+  }).catch(err => { pdfjsReady = null; throw err; });
   return pdfjsReady;
 }
 async function pdfToImageBlobs(file, onProgress) {
@@ -3035,10 +3040,81 @@ async function pdfToImageBlobs(file, onProgress) {
   }
   return out;
 }
+
+/* Mode webtoon : retire marges et pied de page de chaque page du PDF, puis recolle tout en longues bandes */
+async function pdfToWebtoonBlobs(files, onProgress) {
+  await ensurePdfJs();
+  const CH = 6000, out = [];
+  let X0 = -1, W = 0, strip = null, sy = 0;
+  const toBlob = c => new Promise(res => c.toBlob(res, 'image/jpeg', 0.92));
+  const flush = async () => {
+    if (!strip || sy <= 0) return;
+    let c = strip;
+    if (sy < CH) { c = document.createElement('canvas'); c.width = W; c.height = sy; c.getContext('2d').drawImage(strip, 0, 0); }
+    const b = await toBlob(c); if (b) out.push(b);
+    if (c !== strip) { c.width = 0; c.height = 0; }
+    strip.width = 0; strip.height = 0; strip = null; sy = 0;
+  };
+  for (let f = 0; f < files.length; f++) {
+    const doc = await window.pdfjsLib.getDocument({ data: await files[f].arrayBuffer() }).promise;
+    for (let p = 1; p <= doc.numPages; p++) {
+      const page = await doc.getPage(p);
+      const vp = page.getViewport({ scale: 2 });
+      const cv = document.createElement('canvas'); cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
+      const ctx = cv.getContext('2d', { willReadFrequently: true });
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
+      await page.render({ canvasContext: ctx, viewport: vp }).promise;
+      const w = cv.width, h = cv.height, d = ctx.getImageData(0, 0, w, h).data;
+      const dark = i => d[i] < 235 || d[i + 1] < 235 || d[i + 2] < 235;
+      // lignes qui contiennent autre chose que du blanc
+      const row = new Uint8Array(h);
+      for (let y = 0; y < h; y++) { const b = y * w * 4; for (let x = 0; x < w; x++) { if (dark(b + x * 4)) { row[y] = 1; break; } } }
+      // blocs de lignes (les petits trous, comme entre deux lignes de texte, sont fusionnés)
+      const runs = [], mg = Math.max(4, Math.round(h * 0.008)); let s = -1, last = -1;
+      for (let y = 0; y < h; y++) {
+        if (row[y]) { if (s < 0) s = y; last = y; }
+        else if (s >= 0 && y - last > mg) { runs.push([s, last]); s = -1; }
+      }
+      if (s >= 0) runs.push([s, last]);
+      // pied de page : dernier petit bloc, en bas, séparé du reste par du blanc
+      let foot = null;
+      if (runs.length) {
+        const L = runs[runs.length - 1], prevEnd = runs.length > 1 ? runs[runs.length - 2][1] : -1;
+        if (L[1] - L[0] < h * 0.05 && L[0] > h * 0.8 && L[0] - prevEnd > h * 0.02) foot = L;
+      }
+      const body = foot ? runs.slice(0, -1) : runs;
+      if (body.length) {
+        const top = body[0][0], bottom = body[body.length - 1][1] + 1;
+        // largeur utile : fixée une fois pour toutes sur la 1re page (image + pied de page)
+        if (X0 < 0) {
+          let a = w, z = -1;
+          const spans = foot ? [[top, bottom - 1], foot] : [[top, bottom - 1]];
+          for (const [r0, r1] of spans) for (let y = r0; y <= r1; y++) { const b = y * w * 4; for (let x = 0; x < w; x++) { if (dark(b + x * 4)) { if (x < a) a = x; if (x > z) z = x; } } }
+          if (z > a) { X0 = a; W = Math.min(w - a, z - a + 1); }
+        }
+        if (X0 >= 0) {
+          let srcY = top, remain = bottom - top;
+          while (remain > 0) {
+            if (!strip) { strip = document.createElement('canvas'); strip.width = W; strip.height = CH; sy = 0; }
+            const take = Math.min(CH - sy, remain);
+            strip.getContext('2d').drawImage(cv, X0, srcY, W, take, 0, sy, W, take);
+            sy += take; srcY += take; remain -= take;
+            if (sy >= CH) await flush();
+          }
+        }
+      }
+      cv.width = 0; cv.height = 0;
+      if (onProgress) onProgress(f, files.length, p, doc.numPages);
+    }
+  }
+  await flush();
+  return out;
+}
 $('#pickPdf').onclick = () => { dlgAdd.close(); $('#pdfFile').click(); };
 $('#pdfFile').addEventListener('change', async e => {
-  const file = e.target.files[0]; e.target.value = '';
-  if (!file) return;
+  const files = Array.from(e.target.files || []).sort((x, y) => x.name.localeCompare(y.name, undefined, { numeric: true })); e.target.value = '';
+  if (!files.length) return;
+  const file = files[0];
   // Devine le titre du manga et le numéro de chapitre/tome à partir du nom du fichier
   // (ex. « One Piece - Chapitre 12.pdf », « Solo Leveling_Tome 3.pdf ») pour pré-remplir les champs.
   const baseName = file.name.replace(/\.pdf$/i, '').replace(/[_.]+/g, ' ').replace(/\s+/g, ' ').trim();
@@ -3050,9 +3126,18 @@ $('#pdfFile').addEventListener('change', async e => {
   const chapterLabelRaw = prompt('Numéro du chapitre ou du tome (ex. « Chapitre 7 », « Tome 2 »)', suggestion);
   if (chapterLabelRaw === null) return;
   const info = labelToChapterInfo(chapterLabelRaw, guess.chapterLabel || baseName);
+  const webtoon = confirm('Ce PDF est un webtoon ?\n\nOK : marges et pied de page retirés, pages recollées en une seule bande continue.\nAnnuler : pages telles quelles.');
   say('Lecture du PDF…');
   try {
-    const blobs = await pdfToImageBlobs(file, (i, n) => say('Lecture du PDF… page ' + i + '/' + n));
+    let blobs = [];
+    if (webtoon) {
+      blobs = await pdfToWebtoonBlobs(files, (k, nf, i, n) => say('Mode webtoon' + (nf > 1 ? ' ' + (k + 1) + '/' + nf : '') + '… page ' + i + '/' + n));
+    } else {
+      for (let k = 0; k < files.length; k++) {
+        const part = await pdfToImageBlobs(files[k], (i, n) => say('Lecture du PDF' + (files.length > 1 ? ' ' + (k + 1) + '/' + files.length : '') + '… page ' + i + '/' + n));
+        part.forEach(b => blobs.push(b));
+      }
+    }
     if (!blobs.length) { say('Ce PDF ne contient aucune page lisible.', true); return; }
     const manga = await resolveManga(mangaTitle, '', null, null);
     const ch = { id: newId(), mangaId: manga.id, title: info.title || 'Chapitre PDF', num: info.num,
@@ -3064,7 +3149,7 @@ $('#pdfFile').addEventListener('change', async e => {
     // dans la bibliothèque, même si on enchaîne directement sur l'ouverture du lecteur.
     toast('« ' + manga.title + ' » — ' + ch.title + ' importé et ajouté à la bibliothèque.');
     curMangaId = manga.id; openChapter(ch);
-  } catch { say('Impossible de lire ce PDF.', true); }
+  } catch (err) { console.error(err); say('Impossible de lire ce PDF. (' + ((err && err.message) || err) + ')', true); }
 });
 
 /* ---------- Export d'un ou plusieurs chapitres en PDF ---------- */
