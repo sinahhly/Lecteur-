@@ -6,10 +6,10 @@
 <meta name="theme-color" content="#fff6f9">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<title>kumimanga</title>
+<title>kumi</title>
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <script>try{if(localStorage.getItem('sbar')==='translucent'){document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]').setAttribute('content','black-translucent');}}catch(e){}</script>
-<meta name="apple-mobile-web-app-title" content="kumimanga">
+<meta name="apple-mobile-web-app-title" content="kumi">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" type="image/png" href="icon-192.png">
@@ -509,6 +509,34 @@ html.sa #pages.mode-h .pg,html.sa #pages.mode-single .pg,html.sa #pages.mode-dou
 html.sa #pages.mode-single .pg img,html.sa #pages.mode-double .pg img{max-height:var(--fullh)}
 html.sa #pages.mode-h .end,html.sa #pages.mode-single .end,html.sa #pages.mode-double .end,
 html.sa #pages.mode-h .chDivider,html.sa #pages.mode-single .chDivider,html.sa #pages.mode-double .chDivider{height:var(--fullh)}
+
+/* ===== Vidéos ===== */
+#view-vid{padding-bottom:calc(env(safe-area-inset-bottom,0px) + 160px)}
+#vBar{display:flex;align-items:center;gap:8px;padding:0 16px 10px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+#vBar::-webkit-scrollbar{display:none}
+#vGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px 10px;padding:4px 16px}
+.vBadge{position:absolute;left:6px;top:6px;padding:2px 8px;border-radius:99px;background:rgba(0,0,0,.62);color:#fff;font-size:11px;font-weight:700;z-index:1}
+.vCnt{position:absolute;right:6px;bottom:6px;padding:2px 8px;border-radius:99px;background:var(--encre);color:var(--sur-encre);font-size:11px;font-weight:700;z-index:1}
+#vEmpty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;padding:64px 32px;color:var(--brume)}
+#vEmpty svg{width:64px;height:64px;color:var(--encre-t);margin-bottom:8px}
+#vEmpty .emT{font-size:18px;font-weight:700;color:var(--papier)}
+#vEmpty .primary{margin-top:14px}
+#view-show{position:fixed;inset:0;z-index:8;background:var(--nuit);overflow-y:auto;-webkit-overflow-scrolling:touch}
+#view-show:not([hidden]){animation:fadeIn .22s ease}
+#vaMsg,#shMsg{min-height:0}
+#vaMsg.err{color:var(--alerte)}
+.vaFiles{margin-top:10px}
+#vplayer{position:fixed;inset:0;z-index:20;background:#000;display:flex;flex-direction:column;overscroll-behavior:contain}
+#vplayer[hidden]{display:none}
+.vpBar{display:flex;align-items:center;gap:4px;padding:calc(env(safe-area-inset-top,0px) + 6px) 8px 6px;background:rgba(0,0,0,.85);color:#fff}
+.vpBar .iconbtn{color:#fff;opacity:.9}
+.vpBar .vpTitle{flex:1;min-width:0;font-size:14px;font-weight:700;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vpBar .vpTxt{padding:6px 10px;border-radius:10px;font-size:13px;font-weight:700;color:#fff;background:rgba(255,255,255,.12);flex-shrink:0}
+.vpBar .vpTxt:active{background:rgba(255,255,255,.25)}
+#vpStage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;background:#000;padding-bottom:env(safe-area-inset-bottom,0px)}
+#vpStage video,#vpStage iframe{width:100%;height:100%;border:0;background:#000;display:block}
+.vpHint{position:absolute;left:16px;right:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);padding:10px 14px;border-radius:12px;background:rgba(0,0,0,.75);color:#fff;font-size:13px;text-align:center}
+.vpHint button{color:#fff;text-decoration:underline;font-weight:700}
 </style>
 </head>
 <body>
@@ -516,7 +544,7 @@ html.sa #pages.mode-h .chDivider,html.sa #pages.mode-single .chDivider,html.sa #
 <!-- Bibliothèque -->
 <main id="view-lib">
   <header class="topbar">
-    <h1>Bibliothèque</h1>
+    <h1>Lecture</h1>
     <button class="iconbtn themeBtn" type="button" aria-label="Changer de thème"><svg class="ico-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><svg class="ico-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
     <button id="libSearchBtn" class="iconbtn" type="button" aria-label="Rechercher">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
@@ -571,13 +599,133 @@ html.sa #pages.mode-h .chDivider,html.sa #pages.mode-single .chDivider,html.sa #
 <nav id="tabbar">
   <button class="tab on" id="tabLib" type="button">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-    Bibliothèque
+    Lecture
+  </button>
+  <button class="tab" id="tabVid" type="button">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10.5 9.5 4 2.5-4 2.5z" fill="currentColor"/></svg>
+    Vidéos
   </button>
   <button class="tab" id="tabBrowse" type="button">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m16.2 7.8-2.2 6.6-6.6 2.2 2.2-6.6z"/></svg>
     Parcourir
   </button>
 </nav>
+
+<!-- Vidéos -->
+<main id="view-vid" hidden>
+  <header class="topbar">
+    <h1>Vidéos</h1>
+    <button class="iconbtn themeBtn" type="button" aria-label="Changer de thème"><svg class="ico-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><svg class="ico-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+    <button id="vAddBtn" class="iconbtn plus" type="button" aria-label="Ajouter une vidéo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button id="openSettings3" class="iconbtn" type="button" aria-label="Réglages"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 0 1-4 0v-.09a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.55-1H3a2 2 0 0 1 0-4h.09a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34H9a1.7 1.7 0 0 0 1-1.55V3a2 2 0 0 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87V9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 0 1 0 4h-.09a1.7 1.7 0 0 0-1.55 1z"/></svg></button>
+  </header>
+  <div id="vBar" role="toolbar" aria-label="Filtres" hidden></div>
+  <div id="vGrid"></div>
+  <div id="vEmpty" hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10.5 9.5 4 2.5-4 2.5z"/></svg>
+    <p class="emT" id="vEmTitle">Aucune vidéo pour l'instant</p>
+    <p id="vEmSub">Colle le lien d'un épisode (fichier .mp4, flux .m3u8, YouTube, page d'un site…) ou importe une vidéo de ton appareil.</p>
+    <button id="vEmptyAdd" class="primary" type="button">Ajouter une vidéo</button>
+  </div>
+  <button id="vFab" class="fab" type="button" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Ajouter</button>
+</main>
+
+<!-- Fiche série / film -->
+<div id="view-show" hidden>
+  <header class="topbar">
+    <button id="shBack" class="iconbtn" type="button" aria-label="Retour"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg></button>
+    <h1 id="shTop"></h1>
+    <div class="mMenu">
+      <button id="shDlBtn" class="iconbtn" type="button" aria-label="Télécharger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"/><path d="m7.5 11 4.5 4.5 4.5-4.5"/><path d="M5 20h14"/></svg></button>
+      <div class="menuPop" id="shDlPop" hidden>
+        <button type="button" data-n="1">Le suivant</button>
+        <button type="button" data-n="3">Les 3 suivants</button>
+        <button type="button" data-n="all">Tout télécharger</button>
+      </div>
+    </div>
+    <div class="mMenu">
+      <button id="shMenuBtn" class="iconbtn" type="button" aria-label="Options"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
+      <div class="menuPop" id="shMenuPop" hidden>
+        <button id="shAddEp" type="button">Ajouter des épisodes</button>
+        <button id="shCoverBtn" type="button">Changer l'affiche</button>
+        <button id="shDelete" type="button">Supprimer</button>
+      </div>
+    </div>
+  </header>
+  <div class="mHead">
+    <div class="mCover" id="shCover"><span class="ph"></span></div>
+    <div class="mInfo">
+      <h2 id="shTitle"></h2>
+      <button type="button" class="mKind" id="shKind"></button>
+      <div class="chCount" id="shInfo"></div>
+    </div>
+  </div>
+  <div class="mActs">
+    <button id="shFav" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg><span>Favori</span></button>
+    <button id="shAdd" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><span>Ajouter</span></button>
+  </div>
+  <div class="mProg" id="shProg" hidden>
+    <div class="txt"><span id="shProgTxt"></span><span id="shProgPct"></span></div>
+    <div class="pbar"><i id="shProgFill"></i></div>
+  </div>
+  <button class="continue" id="shContinue" type="button">Regarder</button>
+  <div class="chList">
+    <div class="chHead">
+      <div class="chCount" id="shCount"></div>
+      <button id="shSort" class="iconbtn sortBtn asc" type="button" aria-label="Inverser l'ordre"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg></button>
+    </div>
+    <div id="shEps"></div>
+  </div>
+</div>
+
+<!-- Lecteur vidéo -->
+<div id="vplayer" hidden>
+  <div class="vpBar">
+    <button id="vpClose" class="iconbtn" type="button" aria-label="Fermer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    <button id="vpPrev" class="iconbtn" type="button" aria-label="Épisode précédent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+    <div class="vpTitle" id="vpTitle"></div>
+    <button id="vpSkip" class="vpTxt" type="button">+85 s</button>
+    <button id="vpRate" class="vpTxt" type="button">1×</button>
+    <button id="vpWeb" class="iconbtn" type="button" aria-label="Ouvrir dans le navigateur"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.7 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.7-3.8-9s1.3-6.4 3.8-9Z"/></svg></button>
+    <button id="vpNext" class="iconbtn" type="button" aria-label="Épisode suivant"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+  </div>
+  <div id="vpStage"></div>
+</div>
+
+<dialog id="dlgVAdd" class="sheet">
+  <form id="vaForm" novalidate autocomplete="off">
+    <h3 id="vaH">Ajouter une vidéo</h3>
+    <label for="vaTitle">Nom de la série ou du film</label>
+    <input id="vaTitle" type="text" list="vaList" autocapitalize="words" placeholder="Ex. Frieren, Crash Landing on You">
+    <datalist id="vaList"></datalist>
+    <label for="vaType">Type</label>
+    <select id="vaType"><option>Anime</option><option>K-drama</option><option>Série</option><option>Film</option></select>
+    <label for="vaLinks">Liens, un par ligne</label>
+    <textarea id="vaLinks" spellcheck="false" autocapitalize="off" placeholder="https://…/episode1.mp4&#10;Épisode 2 | https://…/episode2.m3u8"></textarea>
+    <p>Lien direct (.mp4, .webm) : lecture + téléchargement hors ligne. Flux .m3u8, YouTube, Vimeo ou page d'un site : lecture en ligne seulement. Tu peux écrire un titre avant le lien, séparé par « | ».</p>
+    <label for="vaPoster">Affiche (lien, facultatif)</label>
+    <input id="vaPoster" type="url" inputmode="url" placeholder="https://…" autocapitalize="off" spellcheck="false">
+    <p id="vaMsg" role="status" aria-live="polite"></p>
+    <div class="alt vaFiles"><button id="vaFiles" class="link" type="button">Importer des vidéos de l'appareil (hors ligne direct)</button></div>
+    <div class="row">
+      <button type="button" class="ghost" id="vaCancel">Annuler</button>
+      <button id="vaGo" class="primary" type="submit">Ajouter</button>
+    </div>
+  </form>
+</dialog>
+<input id="vFiles" type="file" accept="video/*,.mkv" multiple hidden>
+<input id="vCoverFile" type="file" accept="image/*" hidden>
+
+<dialog id="dlgVRow" class="sheet">
+  <h3 id="vrT"></h3>
+  <div class="sheetList">
+    <button id="vrPlay" type="button">Regarder</button>
+    <button id="vrSeen" type="button"></button>
+    <button id="vrDl" type="button"></button>
+    <button id="vrWeb" type="button">Ouvrir le lien dans le navigateur</button>
+    <button id="vrDel" type="button" class="danger">Supprimer cet épisode</button>
+  </div>
+</dialog>
 
 <!-- Écran d'un site -->
 <div id="view-source" hidden>
@@ -1020,12 +1168,14 @@ const cfg = {
 const idb = (() => {
   let dbp;
   const open = () => dbp || (dbp = new Promise((res, rej) => {
-    const r = indexedDB.open('lecteur', 2);
+    const r = indexedDB.open('lecteur', 3);
     r.onupgradeneeded = e => {
       const db = r.result;
       if (!db.objectStoreNames.contains('chapters')) db.createObjectStore('chapters', { keyPath: 'id' });
       if (!db.objectStoreNames.contains('blobs')) db.createObjectStore('blobs');
       if (!db.objectStoreNames.contains('mangas')) db.createObjectStore('mangas', { keyPath: 'id' });
+      if (!db.objectStoreNames.contains('shows')) db.createObjectStore('shows', { keyPath: 'id' });
+      if (!db.objectStoreNames.contains('episodes')) db.createObjectStore('episodes', { keyPath: 'id' });
     };
     r.onsuccess = () => res(r.result);
     r.onerror = () => rej(r.error);
@@ -1044,6 +1194,12 @@ const idb = (() => {
     putChapter: c => { c._upd = Date.now(); return run('chapters', 'readwrite', s => s.put(c)); },
     putChapterRaw: c => run('chapters', 'readwrite', s => s.put(c)),
     putChapters: l => run('chapters', 'readwrite', s => { l.forEach(c => { c._upd = Date.now(); s.put(c); }); }),
+    listShows: () => run('shows', 'readonly', s => s.getAll()),
+    putShow: x => { x._upd = Date.now(); return run('shows', 'readwrite', s => s.put(x)); },
+    delShow: id => run('shows', 'readwrite', s => s.delete(id)),
+    listEpisodes: () => run('episodes', 'readonly', s => s.getAll()),
+    putEpisode: x => { x._upd = Date.now(); return run('episodes', 'readwrite', s => s.put(x)); },
+    delEpisode: async x => { await run('blobs', 'readwrite', s => s.delete('vid:' + x.id)).catch(() => {}); await run('episodes', 'readwrite', s => s.delete(x.id)); },
     listMangas: () => run('mangas', 'readonly', s => s.getAll()),
     putManga: m => { m._upd = Date.now(); return run('mangas', 'readwrite', s => s.put(m)); },
     putMangaRaw: m => run('mangas', 'readwrite', s => s.put(m)),
@@ -2323,15 +2479,22 @@ $('#addForm').addEventListener('submit', async e => {
 
 /* ---------- Navigation entre les vues ---------- */
 function showView(name) {
-  if (name === 'lib' || name === 'browse') $('#view-source').hidden = true;
+  if (name === 'lib' || name === 'browse' || name === 'vid') $('#view-source').hidden = true;
   $('#view-lib').hidden = name !== 'lib';
   $('#view-browse').hidden = name !== 'browse';
+  $('#view-vid').hidden = name !== 'vid';
+  $('#view-show').hidden = true;
   $('#tabbar').hidden = name === 'manga';
   $('#view-manga').hidden = name !== 'manga';
   $('#tabLib').classList.toggle('on', name === 'lib');
+  $('#tabVid').classList.toggle('on', name === 'vid');
   $('#tabBrowse').classList.toggle('on', name === 'browse');
+  if (name !== 'lib') $('#fab').hidden = true;
+  if (name !== 'vid') $('#vFab').hidden = true;
   if (name === 'lib') renderLib();
+  if (name === 'vid') renderVid();
 }
+$('#tabVid').onclick = () => showView('vid');
 $('#tabLib').onclick = () => showView('lib');
 $('#tabBrowse').onclick = () => showView('browse');
 $('#libSearchBtn').onclick = () => {
@@ -4287,6 +4450,454 @@ async function importFromHash() {
   } catch { say('Rien n\'a pu être lu depuis le navigateur. Recommence depuis la page du site.', true); }
 }
 window.addEventListener('hashchange', importFromHash);
+
+/* ---------- Vidéos : animes, k-dramas, séries, films ---------- */
+const VTYPES = ['Anime', 'K-drama', 'Série', 'Film'];
+const VFILTERS = [['all', 'Tous'], ['fav', 'Favoris'], ['Anime', 'Anime'], ['K-drama', 'K-drama'], ['Série', 'Séries'], ['Film', 'Films']];
+const VKIND_TXT = { file: 'lien direct', hls: 'flux .m3u8', embed: 'lecteur intégré', page: 'page web', local: 'fichier de l\'appareil' };
+const ICON_PLAYWEB = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M10 8.5v7l5.5-3.5z"/></svg>';
+const vProg = new Map();
+let curShowId = null, vEps = [], vCur = null, vVideo = null, vHls = null, vBlobUrl = null, vLastSave = 0, vWake = null;
+const vId = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const vSize = b => b >= 1e9 ? (b / 1e9).toFixed(2) + ' Go' : Math.round(b / 1e6) + ' Mo';
+
+function vClassify(raw) {
+  let u; try { u = new URL(String(raw).trim()); } catch { return null; }
+  if (!/^https?:$/.test(u.protocol)) return null;
+  const p = u.pathname.toLowerCase(), h = u.hostname.replace(/^www\./, '');
+  if (/\.(mp4|m4v|webm|mov|ogv|mkv)$/.test(p)) return { kind: 'file', url: u.href };
+  if (/\.m3u8$/.test(p)) return { kind: 'hls', url: u.href };
+  let m;
+  if (h === 'youtu.be' && (m = p.match(/^\/([\w-]{6,})/))) return { kind: 'embed', url: u.href, embed: 'https://www.youtube.com/embed/' + m[1] };
+  if (/(^|\.)youtube\.com$/.test(h)) {
+    if ((m = p.match(/^\/(?:embed|shorts)\/([\w-]{6,})/))) return { kind: 'embed', url: u.href, embed: 'https://www.youtube.com/embed/' + m[1] };
+    const v = u.searchParams.get('v'); if (v) return { kind: 'embed', url: u.href, embed: 'https://www.youtube.com/embed/' + v };
+  }
+  if (h === 'vimeo.com' && (m = p.match(/^\/(\d+)/))) return { kind: 'embed', url: u.href, embed: 'https://player.vimeo.com/video/' + m[1] };
+  if (/(^|\.)dailymotion\.com$/.test(h) && (m = p.match(/\/video\/([a-z0-9]+)/))) return { kind: 'embed', url: u.href, embed: 'https://www.dailymotion.com/embed/video/' + m[1] };
+  return { kind: 'page', url: u.href, embed: u.href };
+}
+
+async function vAniCover(title) {
+  try {
+    const q = 'query($s:String){Media(search:$s,type:ANIME){coverImage{large}}}';
+    const r = await fetch('https://graphql.anilist.co', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ query: q, variables: { s: title } }) });
+    if (!r.ok) return null;
+    const j = await r.json();
+    return (j && j.data && j.data.Media && j.data.Media.coverImage && j.data.Media.coverImage.large) || null;
+  } catch { return null; }
+}
+async function vCoverSrc(s) {
+  if (s.coverType === 'blob') { const b = await idb.blob('vcover:' + s.id).catch(() => null); if (b) return URL.createObjectURL(b); }
+  if (s.coverType === 'url' && s.coverUrl) return s.coverUrl;
+  return null;
+}
+function vSetCover(box, src, alt) {
+  if (!src) return;
+  const img = new Image(); img.alt = alt || ''; img.decoding = 'async'; img.referrerPolicy = 'no-referrer';
+  img.onload = () => { const ph = box.querySelector('.ph'); if (ph) ph.replaceWith(img); };
+  img.src = src;
+}
+const vSort = (a, b) => (a.n ?? 1e9) - (b.n ?? 1e9) || a.added - b.added;
+const vNum = t => { const m = String(t || '').match(/(\d+(?:\.\d+)?)\s*$/) || String(t || '').match(/(?:ep(?:isode|\.)?|e|#)\s*(\d+(?:\.\d+)?)/i); return m ? +m[1] : null; };
+
+/* ----- Bibliothèque vidéo ----- */
+function paintVBar(f) {
+  const bar = $('#vBar'); bar.innerHTML = '';
+  VFILTERS.forEach(([k, l]) => {
+    const x = document.createElement('button'); x.type = 'button'; x.className = 'chip' + (k === f ? ' on' : ''); x.textContent = l;
+    x.onclick = () => { store.set('vFilter', k); renderVid(); };
+    bar.appendChild(x);
+  });
+}
+async function renderVid() {
+  const [shows, eps] = await Promise.all([idb.listShows(), idb.listEpisodes()]);
+  let f = store.get('vFilter', 'all'); if (!VFILTERS.some(o => o[0] === f)) f = 'all';
+  const by = new Map(); (eps || []).forEach(e => { if (!by.has(e.showId)) by.set(e.showId, []); by.get(e.showId).push(e); });
+  const all = shows || [];
+  let list = all.filter(s => f === 'all' || (f === 'fav' ? !!s.fav : s.type === f));
+  list.sort((a, b) => (b.lastWatchAt || b.addedAt || 0) - (a.lastWatchAt || a.addedAt || 0));
+  const grid = $('#vGrid'); grid.innerHTML = '';
+  const total = all.length, filtered = f !== 'all' && total > 0;
+  $('#vBar').hidden = total === 0; if (total) paintVBar(f);
+  $('#vEmpty').hidden = list.length > 0;
+  $('#vFab').hidden = total === 0 || $('#view-vid').hidden;
+  $('#vEmTitle').textContent = filtered ? 'Rien dans cette catégorie' : 'Aucune vidéo pour l\'instant';
+  $('#vEmSub').hidden = $('#vEmptyAdd').hidden = filtered;
+  const frag = document.createDocumentFragment();
+  for (const s of list) {
+    const es = by.get(s.id) || [], seen = es.filter(e => e.watched).length;
+    const card = document.createElement('button'); card.type = 'button'; card.className = 'card';
+    card.innerHTML = '<div class="cover"><span class="ph"></span><span class="vBadge"></span><span class="vCnt" hidden></span></div><span class="name"></span>';
+    card.querySelector('.name').textContent = s.title;
+    card.querySelector('.ph').textContent = s.title.trim()[0]?.toUpperCase() || '?';
+    card.querySelector('.vBadge').textContent = s.type || 'Anime';
+    const cnt = card.querySelector('.vCnt');
+    if (es.length > 1) { cnt.hidden = false; cnt.textContent = seen + '/' + es.length; }
+    card.onclick = () => vOpenShow(s.id);
+    frag.appendChild(card);
+    vCoverSrc(s).then(src => vSetCover(card.querySelector('.cover'), src, s.title));
+  }
+  grid.appendChild(frag);
+}
+
+/* ----- Fiche série ----- */
+async function vOpenShow(id) {
+  curShowId = id;
+  const [shows, eps] = await Promise.all([idb.listShows(), idb.listEpisodes()]);
+  const s = (shows || []).find(x => x.id === id);
+  if (!s) { vCloseShow(); return; }
+  vEps = (eps || []).filter(e => e.showId === id).sort(vSort);
+  $('#shTop').textContent = s.title; $('#shTitle').textContent = s.title;
+  $('#shKind').textContent = s.type || 'Anime';
+  $('#shKind').onclick = async () => { s.type = VTYPES[(VTYPES.indexOf(s.type || 'Anime') + 1) % VTYPES.length]; $('#shKind').textContent = s.type; await idb.putShow(s); };
+  const cover = $('#shCover'); cover.innerHTML = '<span class="ph"></span>'; cover.querySelector('.ph').textContent = s.title.trim()[0]?.toUpperCase() || '?';
+  vCoverSrc(s).then(src => vSetCover(cover, src, s.title));
+  $('#shFav').classList.toggle('on', !!s.fav);
+  $('#shFav').onclick = async () => { s.fav = !s.fav; $('#shFav').classList.toggle('on', s.fav); await idb.putShow(s); };
+  vPaintShow();
+  $('#view-show').hidden = false; $('#tabbar').hidden = true; $('#view-show').scrollTop = 0;
+}
+function vPaintShow() {
+  const desc = store.get('vDesc', '0') === '1';
+  const list = desc ? vEps.slice().reverse() : vEps;
+  const box = $('#shEps'); box.innerHTML = '';
+  list.forEach(e => box.appendChild(vBuildRow(e)));
+  const off = vEps.filter(e => e.saved).length, seen = vEps.filter(e => e.watched).length;
+  $('#shCount').textContent = vEps.length + (vEps.length > 1 ? ' épisodes' : ' épisode');
+  $('#shInfo').textContent = off ? off + ' hors ligne' : '';
+  $('#shSort').classList.toggle('asc', !desc);
+  const pr = $('#shProg'); pr.hidden = !vEps.length;
+  const pct = vEps.length ? Math.round(seen / vEps.length * 100) : 0;
+  $('#shProgTxt').textContent = seen + ' vu(s) sur ' + vEps.length; $('#shProgPct').textContent = pct + ' %'; $('#shProgFill').style.width = pct + '%';
+  const next = vNextToWatch();
+  const c = $('#shContinue'); c.disabled = !next; c.hidden = !vEps.length;
+  c.textContent = !next ? 'Rien à regarder' : (seen || +store.get('vprog:' + next.id, 0) > 5 ? 'Continuer : ' : 'Regarder : ') + next.title;
+}
+function vNextToWatch() {
+  const part = vEps.find(e => !e.watched && +store.get('vprog:' + e.id, 0) > 5);
+  return part || vEps.find(e => !e.watched) || null;
+}
+function vBuildRow(e) {
+  const row = document.createElement('div'); row.className = 'chRow'; row.dataset.ep = e.id;
+  row.innerHTML = '<button type="button" class="open"><span class="t"></span><span class="m"></span></button><button type="button" class="dl"></button>';
+  row.querySelector('.t').textContent = e.title;
+  row.querySelector('.open').onclick = () => vPlay(e);
+  row.querySelector('.dl').onclick = () => vTapDl(e);
+  longPress(row.querySelector('.open'), () => vRowMenu(e));
+  vPaintRow(e, row);
+  return row;
+}
+function vPaintRow(e, row) {
+  row = row || document.querySelector('.chRow[data-ep="' + e.id + '"]'); if (!row) return;
+  const pr = vProg.get(e.id), t = +store.get('vprog:' + e.id, 0), d = +store.get('vdur:' + e.id, 0);
+  row.classList.toggle('read', !!e.watched);
+  const dl = row.querySelector('.dl');
+  if (e.kind !== 'file' && e.kind !== 'local') { dl.className = 'dl'; dl.innerHTML = ICON_PLAYWEB; dl.setAttribute('aria-label', 'Lecture en ligne seulement'); }
+  else {
+    dl.className = 'dl' + (pr ? ' progress' : e.saved ? ' done' : '');
+    dl.innerHTML = pr ? iconProgress(pr.total ? pr.done / pr.total : 0) : e.saved ? ICON_DONE : ICON_DL;
+    dl.setAttribute('aria-label', pr ? 'Arrêter le téléchargement' : e.saved ? 'Téléchargé' : 'Télécharger');
+  }
+  let st = VKIND_TXT[e.kind] || '';
+  if (pr) st = 'téléchargement ' + (pr.total ? Math.round(pr.done / pr.total * 100) + ' % (' + vSize(pr.done) + ')' : vSize(pr.done));
+  else if (e.saved) st = 'hors ligne' + (e.size ? ' · ' + vSize(e.size) : '');
+  if (e.watched) st += ' · vu'; else if (t > 5 && !pr) st += ' · à ' + (d ? Math.round(t / d * 100) + ' %' : Math.floor(t / 60) + ' min');
+  const mm = row.querySelector('.m'); mm.textContent = st; mm.classList.toggle('ok', !!e.saved && !pr);
+}
+function vCloseShow() { $('#view-show').hidden = true; $('#tabbar').hidden = false; curShowId = null; if (!$('#view-vid').hidden) renderVid(); }
+$('#shBack').onclick = vCloseShow;
+$('#shSort').onclick = () => { store.set('vDesc', store.get('vDesc', '0') === '1' ? '0' : '1'); vPaintShow(); };
+$('#shContinue').onclick = () => { const n = vNextToWatch(); if (n) vPlay(n); };
+$('#shMenuBtn').onclick = () => { $('#shMenuPop').hidden = !$('#shMenuPop').hidden; $('#shDlPop').hidden = true; };
+$('#shDlBtn').onclick = () => { $('#shDlPop').hidden = !$('#shDlPop').hidden; $('#shMenuPop').hidden = true; };
+document.addEventListener('click', e => { if (!e.target.closest('#view-show .mMenu')) { $('#shMenuPop').hidden = true; $('#shDlPop').hidden = true; } });
+document.querySelectorAll('#shDlPop button').forEach(b => b.onclick = () => {
+  $('#shDlPop').hidden = true;
+  const dl = vEps.filter(e => e.kind === 'file' && !e.saved && !vProg.has(e.id));
+  if (!dl.length) { toast('Rien à télécharger : seuls les liens directs (.mp4, .webm) peuvent l\'être.'); return; }
+  const from = Math.max(0, vEps.findIndex(e => !e.watched));
+  const pool = b.dataset.n === 'all' ? dl : vEps.slice(from).filter(e => dl.includes(e)).slice(0, +b.dataset.n);
+  vDownloadMany(pool);
+});
+$('#shAdd').onclick = $('#shAddEp').onclick = () => { $('#shMenuPop').hidden = true; vOpenAdd(curShowId); };
+$('#shCoverBtn').onclick = () => { $('#shMenuPop').hidden = true; $('#vCoverFile').click(); };
+$('#vCoverFile').addEventListener('change', async e => {
+  const f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f || !curShowId) return;
+  const s = (await idb.listShows()).find(x => x.id === curShowId); if (!s) return;
+  try { await idb.putBlob('vcover:' + s.id, await scaledBlob(f, 800)); s.coverType = 'blob'; delete s.coverUrl; await idb.putShow(s); vOpenShow(s.id); toast('Affiche mise à jour.'); }
+  catch { toast('Impossible d\'enregistrer cette image.'); }
+});
+$('#shDelete').onclick = async () => {
+  $('#shMenuPop').hidden = true;
+  const s = (await idb.listShows()).find(x => x.id === curShowId); if (!s) return;
+  if (!await uiConfirm('Ses épisodes téléchargés seront aussi supprimés de cet appareil.', { title: 'Supprimer « ' + s.title + ' » ?', ok: 'Supprimer', danger: true })) return;
+  for (const e of vEps) await idb.delEpisode(e);
+  await idb.delBlob('vcover:' + s.id).catch(() => {});
+  await idb.delShow(s.id); vCloseShow();
+};
+
+/* ----- Menu d'un épisode (appui long) ----- */
+const dlgVRow = $('#dlgVRow');
+dlgVRow.addEventListener('click', e => { if (e.target === dlgVRow) dlgVRow.close(); });
+function vRowMenu(e) {
+  $('#vrT').textContent = e.title;
+  $('#vrSeen').textContent = e.watched ? 'Marquer comme non vu' : 'Marquer comme vu';
+  const dlOk = e.kind === 'file';
+  $('#vrDl').hidden = !dlOk; $('#vrDl').textContent = e.saved ? 'Supprimer le téléchargement' : 'Télécharger';
+  $('#vrWeb').hidden = e.kind === 'local';
+  $('#vrPlay').onclick = () => { dlgVRow.close(); vPlay(e); };
+  $('#vrSeen').onclick = async () => { dlgVRow.close(); e.watched = !e.watched; if (!e.watched) store.set('vprog:' + e.id, 0); await idb.putEpisode(e); vPaintShow(); };
+  $('#vrDl').onclick = () => { dlgVRow.close(); vTapDl(e); };
+  $('#vrWeb').onclick = () => { dlgVRow.close(); window.open(e.url, '_blank', 'noopener'); };
+  $('#vrDel').onclick = async () => {
+    dlgVRow.close();
+    if (!await uiConfirm(e.saved ? 'Le fichier téléchargé sera aussi supprimé.' : 'Le lien sera retiré de la série.', { title: 'Supprimer « ' + e.title + ' » ?', ok: 'Supprimer', danger: true })) return;
+    await idb.delEpisode(e); vOpenShow(curShowId);
+  };
+  dlgVRow.showModal();
+}
+
+/* ----- Téléchargement hors ligne (liens directs) ----- */
+async function vFetchStream(url, onProg, signal) {
+  let last = new Error('échec');
+  for (const u of [url, viaProxy(url)].filter(Boolean)) {
+    try {
+      const r = await fetch(u, { referrerPolicy: 'no-referrer', signal });
+      if (!r.ok) throw new Error('code ' + r.status);
+      const type = (r.headers.get('content-type') || '').toLowerCase(), total = +r.headers.get('content-length') || 0;
+      if (/text\/html/.test(type)) throw new Error('page');
+      const mime = /^video\//.test(type) ? type.split(';')[0] : (/\.webm(\?|$)/i.test(url) ? 'video/webm' : 'video/mp4');
+      if (!r.body || !r.body.getReader) { const b = await r.blob(); onProg(b.size, b.size); return new Blob([b], { type: mime }); }
+      const rd = r.body.getReader(), chunks = []; let got = 0;
+      for (;;) { const { done, value } = await rd.read(); if (done) break; chunks.push(value); got += value.length; onProg(got, total); }
+      return new Blob(chunks, { type: mime });
+    } catch (err) { if (err.name === 'AbortError') throw err; last = err; }
+  }
+  throw last;
+}
+async function vDownload(e) {
+  if (vProg.has(e.id)) return 'busy';
+  if (e.kind !== 'file') return 'skip';
+  const ac = new AbortController(), pr = { done: 0, total: 0, ac }; vProg.set(e.id, pr); vPaintRow(e);
+  try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch {}
+  let tick = 0, res = 'ok';
+  try {
+    const b = await vFetchStream(e.url, (g, t) => { pr.done = g; pr.total = t; const n = Date.now(); if (n - tick > 300) { tick = n; vPaintRow(e); } }, ac.signal);
+    if (b.size < 50000) throw new Error('fichier trop petit');
+    await idb.putBlob('vid:' + e.id, b); e.saved = true; e.size = b.size; await idb.putEpisode(e);
+  } catch (err) { res = err.name === 'AbortError' ? 'abort' : 'fail'; }
+  vProg.delete(e.id); vPaintRow(e); vPaintShowInfo();
+  return res;
+}
+function vPaintShowInfo() { const off = vEps.filter(x => x.saved).length; $('#shInfo').textContent = off ? off + ' hors ligne' : ''; }
+async function vDownloadMany(list) {
+  toast('Téléchargement de ' + list.length + ' épisode(s)…');
+  let ok = 0, bad = 0;
+  for (const e of list) { const r = await vDownload(e); if (r === 'ok') ok++; else if (r === 'fail') bad++; }
+  toast(bad ? ok + ' terminé(s), ' + bad + ' en échec : ' + 'le serveur refuse sans doute les téléchargements depuis une page web.' : 'Téléchargement terminé.');
+}
+async function vTapDl(e) {
+  if (e.kind !== 'file' && e.kind !== 'local') {
+    toast(e.kind === 'hls' ? 'Les flux .m3u8 ne se téléchargent pas ici. Lecture en ligne seulement.' : 'Ce lien (page web ou lecteur intégré) se regarde en ligne. Pour le hors ligne : lien direct .mp4, ou importe le fichier.');
+    return;
+  }
+  if (vProg.has(e.id)) { vProg.get(e.id).ac.abort(); return; }
+  if (e.kind === 'local') { toast('Cette vidéo vient de ton appareil : elle est déjà hors ligne.'); return; }
+  if (e.saved) { if (await uiConfirm('Tu pourras la retélécharger plus tard.', { title: 'Supprimer le téléchargement ?', ok: 'Supprimer', danger: true })) { await idb.delBlob('vid:' + e.id).catch(() => {}); e.saved = false; e.size = 0; await idb.putEpisode(e); vPaintRow(e); vPaintShowInfo(); } return; }
+  const r = await vDownload(e);
+  if (r === 'ok') toast(e.title + ' : disponible hors ligne.');
+  else if (r === 'fail') toast('Téléchargement impossible : le serveur bloque les lectures depuis une page web (CORS). Tu peux regarder en ligne, ou télécharger le fichier autrement puis l\'importer ici.');
+}
+
+/* ----- Ajout d'épisodes ----- */
+const dlgVAdd = $('#dlgVAdd');
+function vaSay(t, err) { const m = $('#vaMsg'); m.textContent = t || ''; m.className = err ? 'err' : ''; }
+async function vOpenAdd(showId) {
+  const shows = await idb.listShows();
+  $('#vaList').innerHTML = (shows || []).map(s => '<option value="' + s.title.replace(/"/g, '&quot;') + '">').join('');
+  const s = showId && (shows || []).find(x => x.id === showId);
+  $('#vaTitle').value = s ? s.title : ''; $('#vaTitle').readOnly = !!s;
+  $('#vaType').value = s ? (s.type || 'Anime') : store.get('vLastType', 'Anime'); $('#vaType').disabled = !!s;
+  $('#vaLinks').value = ''; $('#vaPoster').value = ''; $('#vaPoster').parentElement; vaSay('');
+  $('#vaH').textContent = s ? 'Ajouter des épisodes' : 'Ajouter une vidéo';
+  dlgVAdd.showModal();
+}
+$('#vAddBtn').onclick = $('#vEmptyAdd').onclick = $('#vFab').onclick = () => vOpenAdd(null);
+$('#vaCancel').onclick = () => dlgVAdd.close();
+$('#openSettings3').onclick = openSettings;
+
+async function vResolveShow(title, type, poster) {
+  const shows = await idb.listShows(), key = norm(title);
+  let s = (shows || []).find(x => norm(x.title) === key);
+  if (s) return s;
+  s = { id: vId('s'), title, type, fav: false, addedAt: Date.now(), coverType: poster ? 'url' : null, coverUrl: poster || '' };
+  await idb.putShow(s);
+  if (!poster && type === 'Anime') vAniCover(title).then(async u => { if (u) { s.coverType = 'url'; s.coverUrl = u; await idb.putShow(s); if (!$('#view-vid').hidden) renderVid(); } });
+  return s;
+}
+function vNextN(show) { return vEps.filter(e => e.showId === show.id).reduce((m, e) => Math.max(m, e.n || 0), 0); }
+async function vExisting(show) { return ((await idb.listEpisodes()) || []).filter(e => e.showId === show.id); }
+
+$('#vaForm').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const title = $('#vaTitle').value.trim(), type = $('#vaType').value, poster = $('#vaPoster').value.trim();
+  const lines = $('#vaLinks').value.split(/\n+/).map(s => s.trim()).filter(Boolean);
+  if (!title) { vaSay('Donne un nom à la série ou au film.', true); return; }
+  if (!lines.length) { vaSay('Colle au moins un lien, ou importe une vidéo de l\'appareil.', true); return; }
+  const items = [];
+  for (const ln of lines) {
+    const m = ln.match(/https?:\/\/\S+/i), c = m && vClassify(m[0].replace(/[),.;]+$/, ''));
+    if (!c) { vaSay('Pas de lien valide dans : « ' + ln.slice(0, 40) + ' »', true); return; }
+    items.push(Object.assign(c, { label: ln.slice(0, m.index).replace(/[|:\-–—\s]+$/, '').trim() }));
+  }
+  store.set('vLastType', type);
+  const show = await vResolveShow(title, type, poster), have = await vExisting(show);
+  let n = have.reduce((mx, e) => Math.max(mx, e.n || 0), 0), added = 0;
+  const known = new Set(have.map(e => nk(e.url)));
+  for (const it of items) {
+    if (known.has(nk(it.url))) continue;
+    n++;
+    const num = vNum(it.label), ep = {
+      id: vId('e'), showId: show.id, title: it.label || (type === 'Film' && items.length === 1 && !have.length ? 'Film' : 'Épisode ' + n),
+      n: num != null ? num : n, url: it.url, kind: it.kind, saved: false, watched: false, added: Date.now() + added
+    };
+    if (it.embed) ep.embed = it.embed;
+    await idb.putEpisode(ep); known.add(nk(it.url)); added++;
+  }
+  dlgVAdd.close();
+  toast(added ? added + ' épisode(s) ajouté(s).' : 'Ces liens étaient déjà dans la série.');
+  await vOpenShow(show.id);
+  if ($('#view-vid').hidden === false) renderVid();
+});
+
+/* Import de fichiers vidéo de l'appareil (toujours hors ligne) */
+$('#vaFiles').onclick = () => {
+  if (!$('#vaTitle').value.trim()) { vaSay('Donne d\'abord un nom à la série ou au film.', true); return; }
+  $('#vFiles').click();
+};
+$('#vFiles').addEventListener('change', async ev => {
+  const files = [...(ev.target.files || [])]; ev.target.value = '';
+  if (!files.length) return;
+  const title = $('#vaTitle').value.trim(), type = $('#vaType').value, poster = $('#vaPoster').value.trim();
+  files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  const show = await vResolveShow(title, type, poster), have = await vExisting(show);
+  let n = have.reduce((mx, e) => Math.max(mx, e.n || 0), 0), ok = 0;
+  dlgVAdd.close();
+  try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch {}
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i]; imp.show('Import ' + (i + 1) + '/' + files.length + ' : ' + f.name, i / files.length);
+    try {
+      const label = f.name.replace(/\.[^.]+$/, '').replace(/[_.]+/g, ' ').trim();
+      n++;
+      const ep = { id: vId('e'), showId: show.id, title: label || 'Épisode ' + n, n: vNum(label) != null ? vNum(label) : n, url: '', kind: 'local', saved: true, size: f.size, watched: false, added: Date.now() + i };
+      const blob = f.type && /^video\//.test(f.type) ? f : new Blob([f], { type: /\.webm$/i.test(f.name) ? 'video/webm' : 'video/mp4' });
+      await idb.putBlob('vid:' + ep.id, blob); await idb.putEpisode(ep); ok++;
+    } catch { toast('Import impossible pour « ' + f.name + ' » (plus assez de place ?).'); break; }
+  }
+  imp.hide();
+  if (ok) toast(ok + ' vidéo(s) importée(s), disponibles hors ligne.');
+  await vOpenShow(show.id);
+  if (!$('#view-vid').hidden) renderVid();
+});
+
+/* ----- Lecteur vidéo ----- */
+const vRates = [1, 1.25, 1.5, 2, 0.75];
+async function vWakeOn() { try { if (navigator.wakeLock) vWake = await navigator.wakeLock.request('screen'); } catch {} }
+function vWakeOff() { try { vWake && vWake.release(); } catch {} vWake = null; }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && vCur && vVideo) vWakeOn(); });
+
+function vTeardown() {
+  if (vVideo) { try { vVideo.pause(); vVideo.removeAttribute('src'); vVideo.load(); } catch {} }
+  if (vHls) { try { vHls.destroy(); } catch {} vHls = null; }
+  if (vBlobUrl) { URL.revokeObjectURL(vBlobUrl); vBlobUrl = null; }
+  vVideo = null; $('#vpStage').innerHTML = '';
+  $('#vplayer').querySelectorAll('.vpHint').forEach(x => x.remove());
+}
+function vSavePos(force) {
+  if (!vVideo || !vCur) return;
+  const now = Date.now(); if (!force && now - vLastSave < 4000) return; vLastSave = now;
+  const t = vVideo.currentTime, d = vVideo.duration;
+  if (!isFinite(t)) return;
+  store.set('vprog:' + vCur.id, Math.floor(t)); if (isFinite(d) && d > 0) store.set('vdur:' + vCur.id, Math.floor(d));
+  if (isFinite(d) && d > 60 && d - t < 45 && !vCur.watched) { vCur.watched = true; idb.putEpisode(vCur).catch(() => {}); }
+}
+function vHint(html) { const h = document.createElement('div'); h.className = 'vpHint'; h.innerHTML = html; $('#vplayer').appendChild(h); return h; }
+
+async function vPlay(e) {
+  if (vCur) vSavePos(true);
+  vTeardown(); vCur = e;
+  $('#vplayer').hidden = false; document.body.style.overflow = 'hidden';
+  $('#vpTitle').textContent = e.title;
+  const embedMode = e.kind === 'embed' || e.kind === 'page';
+  $('#vpSkip').hidden = $('#vpRate').hidden = embedMode; $('#vpWeb').hidden = e.kind === 'local';
+  const i = vEps.findIndex(x => x.id === e.id);
+  $('#vpPrev').disabled = i <= 0; $('#vpNext').disabled = i < 0 || i >= vEps.length - 1;
+  const st = (await idb.listShows()).find(x => x.id === e.showId);
+  if (st) { st.lastWatchAt = Date.now(); idb.putShow(st).catch(() => {}); }
+  if (embedMode) {
+    const f = document.createElement('iframe');
+    f.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture; encrypted-media'); f.allowFullscreen = true;
+    f.referrerPolicy = 'no-referrer'; f.src = e.embed || e.url;
+    $('#vpStage').appendChild(f);
+    const h = vHint('Si la page reste vide, le site refuse l\'affichage ici. <button type="button" id="vpHintWeb">Ouvrir dans le navigateur</button>');
+    h.querySelector('#vpHintWeb').onclick = () => window.open(e.url, '_blank', 'noopener');
+    setTimeout(() => h.remove(), 9000);
+    return;
+  }
+  const v = document.createElement('video');
+  v.controls = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.setAttribute('webkit-playsinline', ''); v.preload = 'metadata';
+  v.setAttribute('referrerpolicy', 'no-referrer'); v.playbackRate = +store.get('vRate', 1);
+  $('#vpRate').textContent = (+store.get('vRate', 1)) + '×';
+  vVideo = v; $('#vpStage').appendChild(v);
+  let src = null;
+  if (e.saved || e.kind === 'local') { const b = await idb.blob('vid:' + e.id).catch(() => null); if (b) { vBlobUrl = URL.createObjectURL(b); src = vBlobUrl; } }
+  if (!src) { if (e.kind === 'local') { toast('Fichier introuvable sur cet appareil.'); vClose(); return; } src = e.url; }
+  v.addEventListener('loadedmetadata', () => { const t = +store.get('vprog:' + e.id, 0); if (t > 5 && v.duration && t < v.duration - 30) v.currentTime = t; });
+  v.addEventListener('timeupdate', () => vSavePos(false));
+  v.addEventListener('pause', () => vSavePos(true));
+  v.addEventListener('ended', vEnded);
+  v.addEventListener('error', () => {
+    const h = vHint(e.saved ? 'Cette vidéo ne peut pas être lue par ton navigateur (format ou codec).' : 'Lecture impossible : lien expiré, serveur qui refuse, ou format non pris en charge. <button type="button" id="vpHintWeb">Ouvrir dans le navigateur</button>');
+    const b = h.querySelector('#vpHintWeb'); if (b) b.onclick = () => window.open(e.url, '_blank', 'noopener');
+  });
+  if (e.kind === 'hls' && !e.saved) {
+    if (v.canPlayType('application/vnd.apple.mpegurl')) v.src = src;
+    else {
+      try {
+        await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.8/hls.min.js');
+        if (window.Hls && Hls.isSupported()) {
+          vHls = new Hls(); vHls.loadSource(src); vHls.attachMedia(v);
+          vHls.on(Hls.Events.ERROR, (_, d) => { if (d && d.fatal) v.dispatchEvent(new Event('error')); });
+        } else v.src = src;
+      } catch { v.dispatchEvent(new Event('error')); }
+    }
+  } else v.src = src;
+  v.play().catch(() => {});
+  vWakeOn();
+}
+async function vEnded() {
+  if (!vCur) return;
+  const e = vCur; e.watched = true; store.set('vprog:' + e.id, 0); await idb.putEpisode(e).catch(() => {});
+  const i = vEps.findIndex(x => x.id === e.id), nx = vEps[i + 1];
+  if (nx) { toast('Épisode suivant : ' + nx.title); setTimeout(() => { if (vCur === e) vPlay(nx); }, 1200); }
+}
+function vClose() {
+  vSavePos(true); vTeardown(); vWakeOff();
+  $('#vplayer').hidden = true; document.body.style.overflow = ''; vCur = null;
+  if (!$('#view-show').hidden && curShowId) vOpenShow(curShowId);
+  if (!$('#view-vid').hidden) renderVid();
+}
+$('#vpClose').onclick = vClose;
+$('#vpPrev').onclick = () => { const i = vEps.findIndex(x => vCur && x.id === vCur.id); if (i > 0) vPlay(vEps[i - 1]); };
+$('#vpNext').onclick = () => { const i = vEps.findIndex(x => vCur && x.id === vCur.id); if (i >= 0 && i < vEps.length - 1) vPlay(vEps[i + 1]); };
+$('#vpSkip').onclick = () => { if (vVideo) vVideo.currentTime = Math.min((vVideo.duration || 1e9) - 1, vVideo.currentTime + 85); };
+$('#vpRate').onclick = () => {
+  const r = +store.get('vRate', 1), nx = vRates[(vRates.indexOf(r) + 1) % vRates.length];
+  store.set('vRate', nx); $('#vpRate').textContent = nx + '×'; if (vVideo) vVideo.playbackRate = nx;
+};
+$('#vpWeb').onclick = () => { if (vCur && vCur.url) window.open(vCur.url, '_blank', 'noopener'); };
+
 
 try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch {}
 showView('lib');
