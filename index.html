@@ -226,7 +226,7 @@ input::placeholder,textarea::placeholder{color:var(--brume);opacity:.7}
 .tr:disabled{opacity:.8}
 .ov{position:absolute;inset:0;pointer-events:none;font-size:clamp(11px,3.2vw,16px)}
 .bub{position:absolute;display:flex;align-items:center;justify-content:center;text-align:center;
-  padding:2px 4px;border-radius:6px;background:rgba(255,255,255,.95);color:#111;font-weight:700;line-height:1.15;overflow-wrap:anywhere}
+  padding:1px 3px;border-radius:6px;box-sizing:border-box;overflow:hidden;background:#fff;color:#111;font-weight:700;line-height:1.1;overflow-wrap:anywhere}
 .end{max-width:900px;margin:0 auto;padding:48px 20px calc(env(safe-area-inset-bottom,0px) + 60px);text-align:center;color:#a5a2c8}
 .count{position:fixed;right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 10px);z-index:5;font-size:12px;
   padding:3px 10px;border-radius:99px;background:var(--barre);color:var(--brume);
@@ -480,6 +480,7 @@ body.lock,html:has(body.lock){background:#000}
 #impBar{position:fixed;left:12px;right:12px;top:calc(env(safe-area-inset-top,0px) + 10px);z-index:70;padding:12px 14px;border-radius:14px;background:var(--carte);color:var(--papier);border:1.5px solid var(--trait);box-shadow:0 8px 24px rgba(0,0,0,.18)}
 #impBar[hidden]{display:none}
 #impBar .impT{font-size:14px;font-weight:700;margin-bottom:8px}
+#impBar .impX{margin-top:10px;font-size:13px;font-weight:700;color:var(--brume)}
 #impBar .impP{height:6px;border-radius:99px;background:var(--trait);overflow:hidden}
 #impBar .impP i{display:block;height:100%;width:0;background:var(--encre);border-radius:99px;transition:width .2s}
 /* Plein écran de l'app installée : le lecteur couvre tout l'écran, y compris sous la barre du bas */
@@ -687,8 +688,16 @@ html.sa #pages.mode-h .chDivider,html.sa #pages.mode-single .chDivider,html.sa #
     <div class="crow"><span>Sens de lecture droite → gauche (manga)</span><input type="checkbox" id="rsRtl"></div>
     <p>Le sens s'applique aux modes horizontal et par pages. Ces réglages sont mémorisés pour chaque série ; en mode page ou double page, pince l'écran pour zoomer.</p>
     <div class="hr"></div>
-    <button type="button" id="rsTr" class="primary" style="width:100%;height:46px">Traduire cette page</button>
-    <p>Détecte le texte des bulles de la page affichée et le traduit. Les langues se règlent dans les réglages de la bibliothèque.</p>
+    <label for="rsSrc">Langue du texte de cette série</label>
+    <select id="rsSrc">
+      <option value="">Selon les réglages de la bibliothèque</option>
+      <option value="ko">Coréen</option><option value="ja">Japonais</option><option value="zh">Chinois</option>
+      <option value="en">Anglais</option><option value="fr">Français</option><option value="es">Espagnol</option>
+      <option value="pt">Portugais</option><option value="it">Italien</option><option value="de">Allemand</option>
+    </select>
+    <button type="button" id="rsTr" class="primary" style="width:100%;height:46px;margin-top:12px">Traduire cette page</button>
+    <button type="button" id="rsTrAll" class="primary" style="width:100%;height:46px;margin-top:8px">Traduire tout le chapitre</button>
+    <p>Le texte des bulles est lu puis remplacé par sa traduction. Pour tout le chapitre, ça peut prendre plusieurs minutes : tu peux continuer à lire pendant ce temps.</p>
   </div>
 </dialog>
 
@@ -745,6 +754,9 @@ html.sa #pages.mode-h .chDivider,html.sa #pages.mode-single .chDivider,html.sa #
       <option value="chi_sim">Chinois simplifié</option>
       <option value="eng">Anglais</option>
     </select>
+    <label for="setMtEmail">E-mail pour le service de traduction (facultatif)</label>
+    <input id="setMtEmail" type="email" inputmode="email" autocapitalize="off" spellcheck="false" placeholder="toi@exemple.com">
+    <p>Sans e-mail, la limite gratuite est d'environ 5 000 caractères par jour, ce qui suffit pour quelques pages. Avec un e-mail, elle passe à environ 50 000 : utile pour traduire tout un chapitre.</p>
     <label for="setTarget">Traduire vers</label>
     <select id="setTarget">
       <option value="fr">Français</option>
@@ -838,6 +850,7 @@ html.sa #pages.mode-h .chDivider,html.sa #pages.mode-single .chDivider,html.sa #
     <select id="impLang">
       <option value="fr">Français</option><option value="en">English</option><option value="es">Español</option>
       <option value="pt">Português</option><option value="it">Italiano</option><option value="de">Deutsch</option>
+      <option value="ko">Coréen (texte d'origine)</option><option value="ja">Japonais (texte d'origine)</option><option value="zh">Chinois (texte d'origine)</option>
     </select>
     <div id="impWebRow">
       <label for="impType">Type de PDF</label>
@@ -960,6 +973,7 @@ const cfg = {
   proxy: store.get('proxy', 'https://api.allorigins.win/raw?url='),
   lang: store.get('lang', 'kor'),
   target: store.get('target', 'fr'),
+  mtEmail: store.get('mtEmail', ''),
   gClientId: store.get('gClientId', ''),
   syncPages: store.get('syncPages', '1') === '1',
   syncAuto: store.get('syncAuto', '0') === '1'
@@ -1588,8 +1602,9 @@ async function scaledBlob(blob, maxW) {
   const out = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.88)); c.width = 0; c.height = 0;
   return out || blob;
 }
-async function attachCoverIfMissing(manga, lang, firstBlob) {
+async function attachCoverIfMissing(manga, lang0, firstBlob) {
   if (!manga) return;
+  const lang = ['ko', 'ja', 'zh'].includes(lang0) ? (cfg.target || 'fr') : lang0;   // résumé : langue de lecture si le texte est coréen, japonais ou chinois
   const needCover = !manga.coverType, needDesc = !manga.description, needTags = !(manga.genres && manga.genres.length);
   if (!needCover && !needDesc && !needTags && manga.kind) return;
   const [al, md] = await Promise.all([fetchAniMeta(manga.title), (lang && lang !== 'en') ? fetchMangaDex(manga.title, lang) : null]);
@@ -2733,6 +2748,7 @@ function applyReaderMode() {
   else if (mode === 'double') box.classList.add('mode-double');
   box.classList.toggle('rtl', mode !== 'vertical' && readerPrefs().rtl);
   box.style.setProperty('--z', mode === 'vertical' ? String(+store.get('rsZoom', '100') / 100) : '1');
+  requestAnimationFrame(refitAll);
   $('#dim').style.opacity = String(Math.min(.8, Math.max(0, 1 - +store.get('rsBright', '100') / 100)));
   return mode;
 }
@@ -2758,6 +2774,11 @@ function paintTrBtn() {
   upd(); trObs = new MutationObserver(upd); trObs.observe(tr, { childList: true, characterData: true, subtree: true });
 }
 $('#rsTr').onclick = () => trFigs().forEach(f => { const t = f.querySelector('.tr'); if (t && !t.disabled) t.click(); });
+$('#rsTrAll').onclick = translateAll;
+$('#rsSrc').onchange = async e => {
+  if (rpManga) { rpManga.lang = e.target.value || undefined; try { await idb.putManga(rpManga); } catch {} }
+  else { cfg.lang = OCR_OF[e.target.value] || cfg.lang; }
+};
 $('#dlgMode').addEventListener('close', () => { if (trObs) { trObs.disconnect(); trObs = null; } });
 $('#dlgMode').addEventListener('click', e => { if (e.target === $('#dlgMode')) $('#dlgMode').close(); });
 const reapplyReader = () => { if (cur) { const i = curIdx; applyReaderMode(); setupEndObserver(); gotoPage(i); onScroll(); } };
@@ -2778,6 +2799,7 @@ function paintReadPrefs() {
   $('#rsBright').value = b; $('#rsBrightV').textContent = b + ' %';
   $('#rsZoom').value = z; $('#rsZoomV').textContent = z + ' %';
   $('#rsRtl').checked = readerPrefs().rtl;
+  $('#rsSrc').value = (rpManga && rpManga.lang) || '';
 }
 $('#rsBright').oninput = e => { store.set('rsBright', e.target.value); $('#rsBrightV').textContent = e.target.value + ' %'; if (cur) applyReaderMode(); };
 $('#rsZoom').oninput = e => {
@@ -2847,6 +2869,10 @@ async function openChapter(ch, startIdx) {
     }
   }
   await loadReadPrefs(ch.mangaId);
+  if (!window.__appHint && !(navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches))) {
+    window.__appHint = 1;
+    toast('Tu lis dans Safari : pour le plein écran, sans bande en bas, ouvre l\'app depuis son icône sur l\'écran d\'accueil.');
+  }
   cur = ch;
   const box = $('#pages'); box.innerHTML = '';
   $('#rTitle').textContent = ch.title;
@@ -3082,8 +3108,11 @@ async function saveOffline() {
 $('#save').onclick = saveOffline;
 
 /* ---------- Traduction (secondaire, à la demande, page par page) ---------- */
-const MT = { jpn: 'ja', jpn_vert: 'ja', kor: 'ko', chi_sim: 'zh-CN', eng: 'en' };
+const MT = { jpn: 'ja', jpn_vert: 'ja', kor: 'ko', chi_sim: 'zh-CN', eng: 'en', fra: 'fr', spa: 'es', por: 'pt', ita: 'it', deu: 'de' };
+const OCR_OF = { ko: 'kor', ja: 'jpn', zh: 'chi_sim', en: 'eng', fr: 'fra', es: 'spa', pt: 'por', it: 'ita', de: 'deu' };
 let tessWorker = null, tessLang = null;
+/* Langue du texte : celle de la série ouverte, sinon celle des réglages */
+const trLang = () => (rpManga && rpManga.lang && OCR_OF[rpManga.lang]) || cfg.lang;
 
 function loadTess() {
   if (window.Tesseract) return Promise.resolve();
@@ -3103,94 +3132,173 @@ async function getWorker(lang) {
   tessLang = lang;
   return tessWorker;
 }
-async function toPng(blob) {
-  const bmp = await createImageBitmap(blob);
-  const c = document.createElement('canvas');
-  c.width = bmp.width; c.height = bmp.height;
-  c.getContext('2d').drawImage(bmp, 0, 0);
-  const out = await new Promise(r => c.toBlob(r, 'image/png'));
-  if (!out) throw new Error('Cette image est trop grande pour être analysée.');
-  return { blob: out, w: bmp.width, h: bmp.height };
+/* Couleur du fond autour d'un texte (pour que la traduction se fonde dans la bulle) */
+function ringColor(ctx, W, H, b) {
+  const x0 = Math.max(0, Math.floor(b.x0) - 5), y0 = Math.max(0, Math.floor(b.y0) - 5);
+  const x1 = Math.min(W, Math.ceil(b.x1) + 5), y1 = Math.min(H, Math.ceil(b.y1) + 5);
+  const w = x1 - x0, h = y1 - y0;
+  if (w < 2 || h < 2) return '#ffffff';
+  const d = ctx.getImageData(x0, y0, w, h).data; let r = 0, g = 0, bl = 0, n = 0;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const X = x0 + x, Y = y0 + y;
+    if (X >= b.x0 && X < b.x1 && Y >= b.y0 && Y < b.y1) continue;
+    const i = (y * w + x) * 4; r += d[i]; g += d[i + 1]; bl += d[i + 2]; n++;
+  }
+  return n ? 'rgb(' + Math.round(r / n) + ',' + Math.round(g / n) + ',' + Math.round(bl / n) + ')' : '#ffffff';
 }
+/* Lecture du texte d'une image ; les images très hautes (webtoon) sont lues par tranches */
+async function ocrPage(raw, lang, onStep) {
+  const w = await getWorker(lang);
+  const bmp = await createImageBitmap(raw);
+  const W = bmp.width, H = bmp.height, TH = 1800, STEP = 1600, tiles = [];
+  if (H <= 2300) tiles.push([0, H]); else for (let y = 0; y < H; y += STEP) { tiles.push([y, Math.min(H, y + TH)]); if (y + TH >= H) break; }
+  const out = [];
+  try {
+    for (let k = 0; k < tiles.length; k++) {
+      const [y0, y1] = tiles[k], th = y1 - y0;
+      if (onStep) onStep(tiles.length > 1 ? (k + 1) + '/' + tiles.length : '');
+      const c = document.createElement('canvas'); c.width = W; c.height = th;
+      const x = c.getContext('2d', { willReadFrequently: true }); x.fillStyle = '#fff'; x.fillRect(0, 0, W, th);
+      x.drawImage(bmp, 0, y0, W, th, 0, 0, W, th);
+      const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+      if (!blob) { c.width = 0; throw new Error('Cette image est trop grande pour être analysée.'); }
+      const { data } = await w.recognize(blob);
+      const last = k === tiles.length - 1;
+      const paras = (data.paragraphs || (data.blocks || []).flatMap(q => q.paragraphs || []))
+        .map(q => {
+          let t = q.text.replace(/\s+/g, ' ').trim();
+          if (/^(jpn|chi)/.test(lang)) t = t.replace(/\s/g, '');
+          return { t, b: q.bbox, c: q.confidence };
+        })
+        .filter(q => q.c > 45 && q.t.length >= 2 && /\p{L}/u.test(q.t));
+      for (const q of paras) {
+        const cy = y0 + (q.b.y0 + q.b.y1) / 2;
+        if (!last && cy >= y0 + STEP) continue;   // ce texte sera lu par la tranche suivante
+        out.push({ t: q.t, bg: ringColor(x, W, th, q.b), b: { x0: q.b.x0, x1: q.b.x1, y0: q.b.y0 + y0, y1: q.b.y1 + y0 } });
+      }
+      c.width = 0; c.height = 0;
+    }
+  } finally { if (bmp.close) bmp.close(); }
+  return { paras: out, w: W, h: H };
+}
+const mtCache = new Map();
 async function mt(text) {
+  const src = trLang(), key = src + '|' + cfg.target + '|' + text;
+  if (mtCache.has(key)) return mtCache.get(key);
   const r = await fetch('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(text.slice(0, 450)) +
-    '&langpair=' + MT[cfg.lang] + '%7C' + cfg.target);
+    '&langpair=' + MT[src] + '%7C' + cfg.target + (cfg.mtEmail ? '&de=' + encodeURIComponent(cfg.mtEmail) : ''));
   if (!r.ok) throw new Error('Le service de traduction ne répond pas (code ' + r.status + ').');
-  const j = await r.json();
-  if (String(j.responseStatus) !== '200' || !j.responseData || !j.responseData.translatedText)
-    throw new Error('Le service de traduction a refusé la demande. La limite gratuite du jour est peut-être atteinte.');
-  return j.responseData.translatedText;
+  const j = await r.json(), out = j.responseData && j.responseData.translatedText;
+  if (String(j.responseStatus) !== '200' || !out || /MYMEMORY WARNING/i.test(out))
+    throw new Error('Limite gratuite de traduction atteinte pour aujourd\'hui. Ajoute ton e-mail dans les réglages pour la relever, ou réessaie demain.');
+  mtCache.set(key, out);
+  return out;
 }
 
+const lum = rgb => { const m = (rgb || '').match(/\d+/g); return m ? (0.299 * m[0] + 0.587 * m[1] + 0.114 * m[2]) / 255 : 1; };
+function fitBubbles(ov) {
+  ov.querySelectorAll('.bub').forEach(el => {
+    if (!el.clientWidth) return;
+    let fs = Math.min(30, Math.max(9, el.clientHeight * 0.8));
+    el.style.fontSize = fs + 'px';
+    while (fs > 8 && (el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1)) { fs -= 1; el.style.fontSize = fs + 'px'; }
+  });
+}
 function paintBubbles(ov, items) {
   ov.innerHTML = '';
   items.forEach(o => {
-    const el = document.createElement('div'); el.className = 'bub';
-    el.style.left = o.x + '%'; el.style.top = o.y + '%'; el.style.width = o.w + '%'; el.style.minHeight = o.h + '%';
+    const el = document.createElement('div'), px = 0.7, py = 0.35; el.className = 'bub';
+    el.style.left = (o.x - px) + '%'; el.style.top = (o.y - py) + '%';
+    el.style.width = (o.w + 2 * px) + '%'; el.style.height = (o.h + 2 * py) + '%';
+    const bg = o.bg || '#ffffff'; el.style.background = bg; el.style.color = lum(bg) < 0.45 ? '#fff' : '#111';
     el.textContent = o.t; ov.appendChild(el);
   });
+  if (!ov.hidden) requestAnimationFrame(() => fitBubbles(ov));
 }
+const refitAll = () => document.querySelectorAll('.ov:not([hidden])').forEach(fitBubbles);
+addEventListener('resize', refitAll);
 
-async function translatePage(fig, i, btn, p, chId) {
-  const ov = fig.querySelector('.ov');
+/* Traduit une page ; renvoie 'ok', 'none' (aucun texte), 'limit' (limite du service) ou 'fail' */
+async function translatePage(fig, i, btn, p, chId, quiet) {
+  const ov = fig.querySelector('.ov'), say2 = m => { if (!quiet) toast(m); };
   if (btn.dataset.done) {
     ov.hidden = !ov.hidden;
     btn.textContent = ov.hidden ? 'Traduction' : 'Original';
-    return;
+    if (!ov.hidden) requestAnimationFrame(() => fitBubbles(ov));
+    return 'ok';
   }
-  if (btn.disabled) return;
-  if (MT[cfg.lang] === cfg.target) { toast('La langue d\'origine et la langue cible sont identiques (réglages).'); return; }
+  if (btn.disabled) return 'fail';
+  const src = trLang();
+  if (MT[src] === cfg.target) { say2('La langue du texte et la langue de traduction sont identiques. Règle la langue du texte de cette série dans « Lecture ».'); return 'fail'; }
   btn.disabled = true;
   try {
     p = p || (cur && cur.pages[i]);
     chId = chId || (cur && cur.id);
-    const ck = 'tr:' + chId + ':' + i + ':' + cfg.lang + ':' + cfg.target;
+    const ck = 'tr:' + chId + ':' + i + ':' + src + ':' + cfg.target;
     const cached = await idb.blob(ck).catch(() => null);
     if (Array.isArray(cached) && cached.length) {
       paintBubbles(ov, cached); ov.hidden = false; btn.dataset.done = '1'; btn.textContent = 'Original';
-      return;
+      requestAnimationFrame(() => fitBubbles(ov));
+      return 'ok';
     }
     btn.textContent = 'Préparation…';
     const raw = p.saved ? await idb.blob(chId + ':' + i) : await fetchBlob(p.url);
-    const png = await toPng(raw);
-    const w = await getWorker(cfg.lang);
-    btn.textContent = 'Lecture du texte…';
-    const { data } = await w.recognize(png.blob);
-    const paras = (data.paragraphs || (data.blocks || []).flatMap(b => b.paragraphs || []))
-      .map(q => {
-        let t = q.text.replace(/\s+/g, ' ').trim();
-        if (/^(jpn|chi)/.test(cfg.lang)) t = t.replace(/\s/g, '');
-        return { t, b: q.bbox, c: q.confidence };
-      })
-      .filter(q => q.c > 45 && q.t.length >= 2 && /\p{L}/u.test(q.t));
-    if (!paras.length) {
-      toast('Aucun texte reconnu sur cette page. Vérifie la langue d\'origine dans les réglages.');
-      btn.textContent = 'Traduire';
-      return;
-    }
+    const { paras, w, h } = await ocrPage(raw, src, n => { btn.textContent = 'Lecture du texte ' + n; });
+    if (!paras.length) { say2('Aucun texte reconnu sur cette page. Vérifie la langue du texte dans « Lecture ».'); btn.textContent = 'Traduire'; return 'none'; }
     const items = [];
     let lastErr = null;
     for (let k = 0; k < paras.length; k++) {
       btn.textContent = 'Traduction ' + (k + 1) + ' / ' + paras.length;
       try {
         const t = await mt(paras[k].t), b = paras[k].b;
-        items.push({ x: b.x0 / png.w * 100, y: b.y0 / png.h * 100, w: (b.x1 - b.x0) / png.w * 100, h: (b.y1 - b.y0) / png.h * 100, t });
-      } catch (e) { lastErr = e; }
+        items.push({ x: b.x0 / w * 100, y: b.y0 / h * 100, w: (b.x1 - b.x0) / w * 100, h: (b.y1 - b.y0) / h * 100, t, bg: paras[k].bg });
+      } catch (e) { lastErr = e; if (/limite/i.test(e.message)) break; }
     }
     if (!items.length) throw lastErr || new Error('La traduction a échoué.');
     paintBubbles(ov, items);
     ov.hidden = false;
+    requestAnimationFrame(() => fitBubbles(ov));
     btn.dataset.done = '1';
     btn.textContent = 'Original';
-    idb.putBlob(ck, items).catch(() => {});
+    if (!lastErr) idb.putBlob(ck, items).catch(() => {});
+    return 'ok';
   } catch (e) {
     btn.textContent = 'Réessayer';
-    toast(e && e.message && !/^(Failed|Load failed|NetworkError)/i.test(e.message)
+    const msg = e && e.message && !/^(Failed|Load failed|NetworkError)/i.test(e.message)
       ? e.message
-      : 'Cette image ne peut pas être analysée : le site refuse l\'accès. Télécharge d\'abord le chapitre, ou renseigne un proxy dans les réglages.');
+      : 'Cette image ne peut pas être analysée : le site refuse l\'accès. Télécharge d\'abord le chapitre, ou renseigne un proxy dans les réglages.';
+    say2(msg);
+    return /limite/i.test(msg) ? 'limit' : 'fail';
   } finally {
     btn.disabled = false;
   }
+}
+/* Traduit toutes les pages du chapitre ouvert, l'une après l'autre */
+let trBatch = null;
+async function translateAll() {
+  if (!cur || trBatch) return;
+  const ch = cur, figs = [...document.querySelectorAll('.pg[data-ch="' + CSS.escape(String(ch.id)) + '"]')];
+  if (!figs.length) return;
+  if (MT[trLang()] === cfg.target) { toast('La langue du texte et la langue de traduction sont identiques. Règle la langue du texte de cette série dans « Lecture ».'); return; }
+  trBatch = { stop: false };
+  $('#dlgMode').close();
+  let ok = 0, none = 0, fail = 0, streak = 0, limit = false;
+  try {
+    for (let k = 0; k < figs.length && !trBatch.stop; k++) {
+      imp.show('Traduction du chapitre… page ' + (k + 1) + '/' + figs.length, k / figs.length, () => { trBatch.stop = true; });
+      const fig = figs[k], btn = fig.querySelector('.tr');
+      if (!btn) continue;
+      if (btn.dataset.done) { ok++; continue; }
+      const r = await translatePage(fig, +fig.dataset.idx, btn, ch.pages[+fig.dataset.idx], ch.id, true);
+      if (r === 'ok') { ok++; streak = 0; } else if (r === 'none') { none++; streak = 0; }
+      else if (r === 'limit') { limit = true; break; }
+      else { fail++; if (++streak >= 3) break; }
+    }
+  } finally { imp.hide(); }
+  const stopped = trBatch.stop; trBatch = null;
+  toast(limit ? 'Limite gratuite de traduction atteinte. Ajoute ton e-mail dans les réglages pour la relever, puis relance : les pages déjà faites sont gardées.'
+    : stopped ? 'Traduction arrêtée : ' + ok + ' page(s) traduite(s).'
+    : ok + ' page(s) traduite(s)' + (none ? ', ' + none + ' sans texte' : '') + (fail ? ', ' + fail + ' en échec' : '') + '.');
 }
 
 /* ---------- Accueil : lien collé ---------- */
@@ -3290,6 +3398,7 @@ $('#files').addEventListener('change', async e => {
   const mangaTitle = ans.title || 'Sans titre';
   const info = labelToChapterInfo(ans.chapter, 'Images de l\'appareil');
   const manga = await resolveManga(mangaTitle, '', null, null);
+  if (!manga.lang) { manga.lang = ans.lang; await idb.putManga(manga); }
   const ch = { id: newId(), mangaId: manga.id, title: info.title || 'Images de l\'appareil', num: info.num,
     source: 'local:' + Date.now(), added: Date.now(), read: false, pages: fs.map(() => ({ url: null, saved: true })) };
   say('Enregistrement des images…');
@@ -3496,20 +3605,22 @@ function uiConfirm(msg, opts) {
 
 /* Barre de progression d'import (visible sur toutes les pages) */
 const imp = (() => {
-  let el;
+  let el, cb = null;
   const ensure = () => {
     if (el) return el;
     el = document.createElement('div'); el.id = 'impBar'; el.hidden = true;
-    el.innerHTML = '<div class="impT"></div><div class="impP"><i></i></div>';
+    el.innerHTML = '<div class="impT"></div><div class="impP"><i></i></div><button type="button" class="impX" hidden>Arrêter</button>';
+    el.querySelector('.impX').onclick = () => { if (cb) cb(); };
     document.body.appendChild(el); return el;
   };
   return {
-    show(text, ratio) {
-      const e = ensure(); e.hidden = false;
+    show(text, ratio, onCancel) {
+      const e = ensure(); e.hidden = false; cb = onCancel || null;
       e.querySelector('.impT').textContent = text;
       e.querySelector('.impP i').style.width = Math.round(Math.max(0, Math.min(1, ratio || 0)) * 100) + '%';
+      e.querySelector('.impX').hidden = !onCancel;
     },
-    hide() { if (el) el.hidden = true; }
+    hide() { if (el) el.hidden = true; cb = null; }
   };
 })();
 function askImport(def) {
@@ -3707,6 +3818,7 @@ $('#pdfFile').addEventListener('change', async e => {
     }
     if (!blobs.length) { say('Ce PDF ne contient aucune page lisible.', true); return; }
     const manga = await resolveManga(mangaTitle, '', null, null);
+    if (!manga.lang) { manga.lang = lang; await idb.putManga(manga); }
     if (!manga.readPrefs && webtoon) {
       manga.readPrefs = type === 'manga' ? { mode: 'paged', layout: 'auto', rtl: true } : { mode: 'vertical', rtl: false };
       if (!manga.kind) manga.kind = type === 'manga' ? 'Manga' : 'Webtoon';
@@ -3907,7 +4019,7 @@ $('#fab').onclick = $('#emptyAdd').onclick = () => openAdd();
 /* ---------- Réglages ---------- */
 const dlgSet = $('#dlgSet');
 function openSettings() {
-  $('#setProxy').value = cfg.proxy; $('#setLang').value = cfg.lang; $('#setTarget').value = cfg.target; syncThemeUI();
+  $('#setProxy').value = cfg.proxy; $('#setLang').value = cfg.lang; $('#setTarget').value = cfg.target; $('#setMtEmail').value = cfg.mtEmail || ''; syncThemeUI();
   $('#setGClientId').value = cfg.gClientId;
   $('#setSyncPages').checked = cfg.syncPages;
   $('#setSyncAuto').checked = cfg.syncAuto;
@@ -3920,6 +4032,7 @@ dlgSet.addEventListener('close', () => {
   if (dlgSet.returnValue !== 'ok') return;
   cfg.proxy = $('#setProxy').value.trim(); cfg.lang = $('#setLang').value; cfg.target = $('#setTarget').value;
   store.set('proxy', cfg.proxy); store.set('lang', cfg.lang); store.set('target', cfg.target);
+  cfg.mtEmail = $('#setMtEmail').value.trim(); store.set('mtEmail', cfg.mtEmail);
   const newClientId = $('#setGClientId').value.trim();
   if (newClientId !== cfg.gClientId) gTokenClient = null;
   cfg.gClientId = newClientId; cfg.syncPages = $('#setSyncPages').checked; cfg.syncAuto = $('#setSyncAuto').checked;
