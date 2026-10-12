@@ -7,7 +7,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <title>Lecteur de chapitres</title>
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<script>try{if(localStorage.getItem('sbar')==='translucent'){document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]').setAttribute('content','black-translucent');}}catch(e){}</script>
 <meta name="apple-mobile-web-app-title" content="Lecteur">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
@@ -457,6 +458,12 @@ dialog h3{padding-right:30px}
 /* Bande du bas du lecteur : noire (comme le lecteur) au lieu de la couleur du thème */
 body.lock,html:has(body.lock){background:#000}
 .primary.danger{background:#d9534f;color:#fff}
+/* Traduction : zones à toucher et encadré */
+.ov .hot{position:absolute;pointer-events:auto;border-radius:8px;background:rgba(91,87,224,.10);box-shadow:0 0 0 2px rgba(91,87,224,.5)}
+.ov .hot.on{background:rgba(91,87,224,.22);box-shadow:0 0 0 2px rgba(91,87,224,.9)}
+.trPop{position:absolute;left:50%;transform:translateX(-50%);width:min(88%,340px);box-sizing:border-box;padding:12px 14px;border-radius:14px;background:var(--carte);color:var(--papier);border:1.5px solid var(--trait);box-shadow:0 10px 28px rgba(0,0,0,.35);pointer-events:auto;z-index:4;text-align:left;line-height:1.35}
+.trPop b{display:block;font-size:16px;font-weight:700}
+.trPop small{display:block;margin-top:6px;font-size:12px;color:var(--brume);font-weight:500}
 /* Écran de recadrage */
 #cropView{position:fixed;inset:0;z-index:90;display:flex;flex-direction:column;background:var(--nuit);color:var(--papier);padding:calc(env(safe-area-inset-top,0px) + 8px) 14px calc(env(safe-area-inset-bottom,0px) + 14px)}
 #cropView[hidden]{display:none}
@@ -697,7 +704,7 @@ html.sa #pages.mode-h .chDivider,html.sa #pages.mode-single .chDivider,html.sa #
     </select>
     <button type="button" id="rsTr" class="primary" style="width:100%;height:46px;margin-top:12px">Traduire cette page</button>
     <button type="button" id="rsTrAll" class="primary" style="width:100%;height:46px;margin-top:8px">Traduire tout le chapitre</button>
-    <p>Le texte des bulles est lu puis remplacé par sa traduction. Pour tout le chapitre, ça peut prendre plusieurs minutes : tu peux continuer à lire pendant ce temps.</p>
+    <p>Le texte est lu puis traduit : touche un texte entouré pour voir sa traduction dans un petit encadré. Pour tout le chapitre, ça peut prendre plusieurs minutes : tu peux continuer à lire pendant ce temps.</p>
   </div>
 </dialog>
 
@@ -743,6 +750,12 @@ html.sa #pages.mode-h .chDivider,html.sa #pages.mode-single .chDivider,html.sa #
     </div>
     <p>Le thème s'applique tout de suite.</p>
     <div class="hr"></div>
+    <label for="setSbar">Barre d'état de l'iPhone (app installée)</label>
+    <select id="setSbar">
+      <option value="black">Noire : plein écran, sans bande en bas</option>
+      <option value="translucent">Transparente : la page passe sous l'heure</option>
+    </select>
+    <p>Ferme complètement l'app puis rouvre-la pour appliquer. Si une bande noire gêne en bas du lecteur, garde « Noire ».</p>
     <label for="setProxy">Proxy pour lire les pages (facultatif)</label>
     <input id="setProxy" type="text" spellcheck="false" autocapitalize="off">
     <p>Certains sites refusent qu'une page web lise leur contenu. Le proxy sert d'intermédiaire, mais les liens passent alors par ce service. Laisse vide pour ne pas en utiliser.</p>
@@ -2773,7 +2786,18 @@ function paintTrBtn() {
   const upd = () => { b.textContent = map(tr.textContent); };
   upd(); trObs = new MutationObserver(upd); trObs.observe(tr, { childList: true, characterData: true, subtree: true });
 }
-$('#rsTr').onclick = () => trFigs().forEach(f => { const t = f.querySelector('.tr'); if (t && !t.disabled) t.click(); });
+$('#rsTr').onclick = async () => {
+  $('#dlgMode').close();
+  if (trBatch) { toast('Une traduction du chapitre est déjà en cours.'); return; }
+  for (const f of trFigs()) {
+    const t = f.querySelector('.tr'); if (!t || t.disabled) continue;
+    const idx = +f.dataset.idx, was = !!t.dataset.done;
+    if (!was) imp.show('Traduction de la page…', 0.5);
+    const r = await translatePage(f, idx, t, cur && cur.pages[idx], cur && cur.id, false);
+    if (!was && r === 'ok') toast('Page traduite. Touche un texte entouré pour voir sa traduction.');
+  }
+  imp.hide();
+};
 $('#rsTrAll').onclick = translateAll;
 $('#rsSrc').onchange = async e => {
   if (rpManga) { rpManga.lang = e.target.value || undefined; try { await idb.putManga(rpManga); } catch {} }
@@ -3195,33 +3219,47 @@ async function mt(text) {
   return out;
 }
 
-const lum = rgb => { const m = (rgb || '').match(/\d+/g); return m ? (0.299 * m[0] + 0.587 * m[1] + 0.114 * m[2]) / 255 : 1; };
-function fitBubbles(ov) {
-  ov.querySelectorAll('.bub').forEach(el => {
-    if (!el.clientWidth) return;
-    let fs = Math.min(30, Math.max(9, el.clientHeight * 0.8));
-    el.style.fontSize = fs + 'px';
-    while (fs > 8 && (el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1)) { fs -= 1; el.style.fontSize = fs + 'px'; }
-  });
+/* Traduction : on garde l'image intacte ; chaque texte repéré devient une zone à toucher
+   qui ouvre un petit encadré avec la traduction */
+const lum = () => 1;
+function fitBubbles() {}
+const refitAll = () => {};
+function closeTrPop() {
+  document.querySelectorAll('.trPop').forEach(e => e.remove());
+  document.querySelectorAll('.hot.on').forEach(e => e.classList.remove('on'));
+}
+function showTrPop(ov, o, hot) {
+  closeTrPop();
+  hot.classList.add('on');
+  const pop = document.createElement('div'); pop.className = 'trPop';
+  const b = document.createElement('b'); b.textContent = o.t; pop.appendChild(b);
+  if (o.src) { const sm = document.createElement('small'); sm.textContent = o.src; pop.appendChild(sm); }
+  if (o.y + o.h / 2 < 55) pop.style.top = 'calc(' + (o.y + o.h) + '% + 8px)';
+  else pop.style.bottom = 'calc(' + (100 - o.y) + '% + 8px)';
+  pop.addEventListener('click', e => { e.stopPropagation(); closeTrPop(); });
+  ov.appendChild(pop);
 }
 function paintBubbles(ov, items) {
   ov.innerHTML = '';
   items.forEach(o => {
-    const el = document.createElement('div'), px = 0.7, py = 0.35; el.className = 'bub';
-    el.style.left = (o.x - px) + '%'; el.style.top = (o.y - py) + '%';
+    const el = document.createElement('div'), px = 1, py = 0.6; el.className = 'hot';
+    el.style.left = Math.max(0, o.x - px) + '%'; el.style.top = Math.max(0, o.y - py) + '%';
     el.style.width = (o.w + 2 * px) + '%'; el.style.height = (o.h + 2 * py) + '%';
-    const bg = o.bg || '#ffffff'; el.style.background = bg; el.style.color = lum(bg) < 0.45 ? '#fff' : '#111';
-    el.textContent = o.t; ov.appendChild(el);
+    el.addEventListener('click', e => { e.stopPropagation(); if (el.classList.contains('on')) closeTrPop(); else showTrPop(ov, o, el); });
+    ov.appendChild(el);
   });
-  if (!ov.hidden) requestAnimationFrame(() => fitBubbles(ov));
 }
-const refitAll = () => document.querySelectorAll('.ov:not([hidden])').forEach(fitBubbles);
-addEventListener('resize', refitAll);
+$('#pages').addEventListener('click', e => {
+  if (!document.querySelector('.trPop')) return;
+  if (e.target.closest && e.target.closest('.hot, .trPop, .tr')) return;
+  closeTrPop(); e.stopPropagation();   // un toucher à côté ferme l'encadré sans afficher/masquer les boutons
+}, true);
 
 /* Traduit une page ; renvoie 'ok', 'none' (aucun texte), 'limit' (limite du service) ou 'fail' */
 async function translatePage(fig, i, btn, p, chId, quiet) {
   const ov = fig.querySelector('.ov'), say2 = m => { if (!quiet) toast(m); };
   if (btn.dataset.done) {
+    closeTrPop();
     ov.hidden = !ov.hidden;
     btn.textContent = ov.hidden ? 'Traduction' : 'Original';
     if (!ov.hidden) requestAnimationFrame(() => fitBubbles(ov));
@@ -3251,7 +3289,7 @@ async function translatePage(fig, i, btn, p, chId, quiet) {
       btn.textContent = 'Traduction ' + (k + 1) + ' / ' + paras.length;
       try {
         const t = await mt(paras[k].t), b = paras[k].b;
-        items.push({ x: b.x0 / w * 100, y: b.y0 / h * 100, w: (b.x1 - b.x0) / w * 100, h: (b.y1 - b.y0) / h * 100, t, bg: paras[k].bg });
+        items.push({ x: b.x0 / w * 100, y: b.y0 / h * 100, w: (b.x1 - b.x0) / w * 100, h: (b.y1 - b.y0) / h * 100, t, src: paras[k].t });
       } catch (e) { lastErr = e; if (/limite/i.test(e.message)) break; }
     }
     if (!items.length) throw lastErr || new Error('La traduction a échoué.');
@@ -3298,7 +3336,7 @@ async function translateAll() {
   const stopped = trBatch.stop; trBatch = null;
   toast(limit ? 'Limite gratuite de traduction atteinte. Ajoute ton e-mail dans les réglages pour la relever, puis relance : les pages déjà faites sont gardées.'
     : stopped ? 'Traduction arrêtée : ' + ok + ' page(s) traduite(s).'
-    : ok + ' page(s) traduite(s)' + (none ? ', ' + none + ' sans texte' : '') + (fail ? ', ' + fail + ' en échec' : '') + '.');
+    : ok + ' page(s) traduite(s)' + (none ? ', ' + none + ' sans texte' : '') + (fail ? ', ' + fail + ' en échec' : '') + '.' + (ok ? ' Touche un texte entouré pour voir sa traduction.' : ''));
 }
 
 /* ---------- Accueil : lien collé ---------- */
@@ -4019,7 +4057,7 @@ $('#fab').onclick = $('#emptyAdd').onclick = () => openAdd();
 /* ---------- Réglages ---------- */
 const dlgSet = $('#dlgSet');
 function openSettings() {
-  $('#setProxy').value = cfg.proxy; $('#setLang').value = cfg.lang; $('#setTarget').value = cfg.target; $('#setMtEmail').value = cfg.mtEmail || ''; syncThemeUI();
+  $('#setProxy').value = cfg.proxy; $('#setLang').value = cfg.lang; $('#setTarget').value = cfg.target; $('#setMtEmail').value = cfg.mtEmail || ''; $('#setSbar').value = store.get('sbar', 'black'); syncThemeUI();
   $('#setGClientId').value = cfg.gClientId;
   $('#setSyncPages').checked = cfg.syncPages;
   $('#setSyncAuto').checked = cfg.syncAuto;
@@ -4033,11 +4071,12 @@ dlgSet.addEventListener('close', () => {
   cfg.proxy = $('#setProxy').value.trim(); cfg.lang = $('#setLang').value; cfg.target = $('#setTarget').value;
   store.set('proxy', cfg.proxy); store.set('lang', cfg.lang); store.set('target', cfg.target);
   cfg.mtEmail = $('#setMtEmail').value.trim(); store.set('mtEmail', cfg.mtEmail);
+  const sbChanged = $('#setSbar').value !== store.get('sbar', 'black'); store.set('sbar', $('#setSbar').value);
   const newClientId = $('#setGClientId').value.trim();
   if (newClientId !== cfg.gClientId) gTokenClient = null;
   cfg.gClientId = newClientId; cfg.syncPages = $('#setSyncPages').checked; cfg.syncAuto = $('#setSyncAuto').checked;
   store.set('gClientId', cfg.gClientId); store.set('syncPages', cfg.syncPages ? '1' : '0'); store.set('syncAuto', cfg.syncAuto ? '1' : '0');
-  toast('Réglages enregistrés.');
+  toast(sbChanged ? 'Réglages enregistrés. Ferme puis rouvre l\'app pour la barre d\'état.' : 'Réglages enregistrés.');
 });
 $('#prefExport').onclick = () => {
   const data = {};
@@ -4213,8 +4252,10 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   });
   var isApp = navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
   var setForm = document.querySelector('#dlgSet form');
-  if (setForm) setForm.insertAdjacentHTML('afterbegin', '<p class="hint">Affichage actuel : ' + (isApp ? 'app installée (plein écran).' : 'dans Safari (la barre du bas ne peut pas être retirée ; ouvre l\'app depuis son icône).') + '</p>');
-  if (isApp) {
+  var sbar = ''; try { sbar = localStorage.getItem('sbar') || 'black'; } catch (e) { sbar = 'black'; }
+  var info = ' (écran ' + Math.max(screen.width, screen.height) + ', page ' + window.innerHeight + ')';
+  if (setForm) setForm.insertAdjacentHTML('afterbegin', '<p class="hint">Affichage actuel : ' + (isApp ? 'app installée, barre d\'état ' + (sbar === 'translucent' ? 'transparente' : 'noire') + '.' : 'dans Safari (la barre du bas ne peut pas être retirée ; ouvre l\'app depuis son icône).') + info + '</p>');
+  if (isApp && sbar === 'translucent') {
     document.documentElement.classList.add('sa');
     var els = ['reader', 'dim'].map(function (id) { return document.getElementById(id); }).filter(Boolean);
     var fit = function () {
