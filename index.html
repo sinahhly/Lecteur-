@@ -457,6 +457,25 @@ dialog h3{padding-right:30px}
 /* Bande du bas du lecteur : noire (comme le lecteur) au lieu de la couleur du thème */
 body.lock,html:has(body.lock){background:#000}
 .primary.danger{background:#d9534f;color:#fff}
+/* Écran de recadrage */
+#cropView{position:fixed;inset:0;z-index:90;display:flex;flex-direction:column;background:var(--nuit);color:var(--papier);padding:calc(env(safe-area-inset-top,0px) + 8px) 14px calc(env(safe-area-inset-bottom,0px) + 14px)}
+#cropView[hidden]{display:none}
+.cropBar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-bottom:8px}
+.cropTitle{font-weight:700;font-size:17px}
+.cropStage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
+.cropWrap{position:relative;touch-action:none;line-height:0;overflow:hidden;border-radius:6px;box-shadow:0 2px 14px rgba(0,0,0,.25);user-select:none;-webkit-user-select:none}
+.cropWrap canvas{display:block;max-width:100%;max-height:calc(100dvh - 250px);width:auto;height:auto}
+.cropBox{position:absolute;box-sizing:border-box;border:2px solid var(--encre);box-shadow:0 0 0 9999px rgba(0,0,0,.55);pointer-events:none}
+.cropBox i{position:absolute;background:var(--encre);border-radius:8px}
+.cropBox i.t,.cropBox i.b{left:50%;width:34px;height:7px;transform:translateX(-50%)}
+.cropBox i.l,.cropBox i.r{top:50%;width:7px;height:34px;transform:translateY(-50%)}
+.cropBox i.t{top:-4px}.cropBox i.b{bottom:-4px}.cropBox i.l{left:-4px}.cropBox i.r{right:-4px}
+.cropBox i.c{width:16px;height:16px;border-radius:99px}
+.cropBox i.tl{left:-8px;top:-8px}.cropBox i.tr{right:-8px;top:-8px}.cropBox i.bl{left:-8px;bottom:-8px}.cropBox i.br{right:-8px;bottom:-8px}
+.cropNav{display:flex;align-items:center;justify-content:center;gap:18px;padding:8px 0 0;font-weight:700}
+.cropNav .ghost{font-size:22px;padding:4px 16px}
+.cropHint{text-align:center;font-size:13px;color:var(--brume);margin:6px 0 10px}
+.cropFoot{display:flex;align-items:center;justify-content:space-between;gap:10px}
 /* Barre de progression d'import, visible sur toutes les pages */
 #impBar{position:fixed;left:12px;right:12px;top:calc(env(safe-area-inset-top,0px) + 10px);z-index:70;padding:12px 14px;border-radius:14px;background:var(--carte);color:var(--papier);border:1.5px solid var(--trait);box-shadow:0 8px 24px rgba(0,0,0,.18)}
 #impBar[hidden]{display:none}
@@ -764,6 +783,39 @@ html.sa #pages.mode-h .chDivider,html.sa #pages.mode-single .chDivider,html.sa #
   </form>
 </dialog>
 
+<dialog id="dlgKind" class="sheet">
+  <h3>Quel type de lecture ?</h3>
+  <div class="sheetList">
+    <button type="button" data-k="webtoon">Webtoon <span class="m">pages recollées en une bande continue, sans coupure</span></button>
+    <button type="button" data-k="manga">Manga <span class="m">pages redécoupées, lecture droite → gauche</span></button>
+    <button type="button" data-k="pages">Pages telles quelles <span class="m">une image par page du PDF, recadrée</span></button>
+  </div>
+</dialog>
+
+<div id="cropView" hidden>
+  <div class="cropBar">
+    <button type="button" class="ghost" id="cropClose">Annuler</button>
+    <div class="cropTitle">Recadrer</div>
+    <button type="button" class="ghost" id="cropAuto">Auto</button>
+  </div>
+  <div class="cropStage">
+    <div class="cropWrap" id="cropWrap">
+      <canvas id="cropCv"></canvas>
+      <div class="cropBox" id="cropBox"><i class="t"></i><i class="b"></i><i class="l"></i><i class="r"></i><i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i></div>
+    </div>
+  </div>
+  <div class="cropNav">
+    <button type="button" class="ghost" id="cropPrev" aria-label="Page précédente">‹</button>
+    <span id="cropPage">…</span>
+    <button type="button" class="ghost" id="cropNext" aria-label="Page suivante">›</button>
+  </div>
+  <p class="cropHint">Déplace les bords du cadre. Le même cadre sera appliqué à toutes les pages.</p>
+  <div class="cropFoot">
+    <button type="button" class="ghost" id="cropReset">Page entière</button>
+    <button type="button" class="primary" id="cropGo">Suivant</button>
+  </div>
+</div>
+
 <dialog id="dlgConfirm" class="sheet">
   <h3 id="cfTitle">Confirmer</h3>
   <p id="cfMsg" class="hint"></p>
@@ -793,6 +845,7 @@ html.sa #pages.mode-h .chDivider,html.sa #pages.mode-single .chDivider,html.sa #
         <option value="pages">Pages telles quelles</option>
         <option value="webtoon">Webtoon : bande continue, sans marges</option>
         <option value="manga">Manga : pages redécoupées, lecture droite → gauche</option>
+        <option value="crop">Recadrer moi-même, puis webtoon ou manga</option>
       </select>
     </div>
     <div class="row">
@@ -3281,7 +3334,7 @@ async function pdfToWebtoonBlobs(files, onProgress, opts) {
   let X0 = -1, W = 0, strip = null, sy = 0;
   /* Mode manga : on remplit un tampon, puis on le redécoupe en pages de proportion manga,
      en coupant dans la bande blanche la plus épaisse près de la hauteur attendue */
-  const pag = !!(opts && opts.paginate);
+  const pag = !!(opts && opts.paginate), crop = opts && opts.crop, each = !!(opts && opts.each);
   let H0 = 0, WIN = 0, buf = null, bh = 0;
   const findCut = () => {
     const a = Math.max(8, H0 - WIN), b = Math.min(bh - 4, H0 + WIN), h = b - a;
@@ -3345,6 +3398,34 @@ async function pdfToWebtoonBlobs(files, onProgress, opts) {
       const ctx = cv.getContext('2d', { willReadFrequently: true });
       ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
       await page.render({ canvasContext: ctx, viewport: vp }).promise;
+      if (crop) {
+        // Cadre choisi à la main : même cadre (en fractions) pour toutes les pages, sans détection
+        const pw = cv.width, ph = cv.height;
+        const cx = Math.round(crop.x0 * pw), cW = Math.max(2, Math.round((crop.x1 - crop.x0) * pw));
+        let ct = Math.round(crop.y0 * ph), cH = Math.max(2, Math.round((crop.y1 - crop.y0) * ph));
+        if (!each) { ct += 2; cH -= 4; }
+        if (X0 < 0) { X0 = cx; W = cW; }
+        if (cH > 0) {
+          if (each) {
+            const c = document.createElement('canvas'); c.width = cW; c.height = cH;
+            c.getContext('2d').drawImage(cv, cx, ct, cW, cH, 0, 0, cW, cH);
+            const b = await toBlob(c); c.width = 0; c.height = 0; if (b) out.push(b);
+          } else if (pag) await pagAdd(cv, cx, ct, cH);
+          else {
+            let srcY = ct, remain = cH;
+            while (remain > 0) {
+              if (!strip) { strip = document.createElement('canvas'); strip.width = W; strip.height = CH; sy = 0; }
+              const take = Math.min(CH - sy, remain);
+              strip.getContext('2d').drawImage(cv, cx, srcY, W, take, 0, sy, W, take);
+              sy += take; srcY += take; remain -= take;
+              if (sy >= CH) await flush();
+            }
+          }
+        }
+        cv.width = 0; cv.height = 0; page.cleanup(); if (p % 8 === 0) doc.cleanup();
+        if (onProgress) onProgress(f, files.length, p, doc.numPages);
+        continue;
+      }
       const w = cv.width, h = cv.height, d = ctx.getImageData(0, 0, w, h).data;
       const dark = i => d[i] < 235 || d[i + 1] < 235 || d[i + 2] < 235;
       // lignes qui contiennent autre chose que du blanc
@@ -3463,6 +3544,121 @@ async function guessPdfLang(file, baseName) {
   } catch {}
   return g || cfg.target || 'fr';
 }
+
+/* Détecte marges et pied de page sur une page rendue : renvoie le cadre utile en fractions (0 à 1) */
+function detectBox(cv) {
+  const w = cv.width, h = cv.height;
+  const d = cv.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, w, h).data;
+  const dark = i => d[i] < 235 || d[i + 1] < 235 || d[i + 2] < 235;
+  const row = new Uint8Array(h);
+  for (let y = 0; y < h; y++) { const b = y * w * 4; for (let x = 0; x < w; x++) { if (dark(b + x * 4)) { row[y] = 1; break; } } }
+  const runs = [], mg = Math.max(4, Math.round(h * 0.008)); let s = -1, last = -1;
+  for (let y = 0; y < h; y++) {
+    if (row[y]) { if (s < 0) s = y; last = y; }
+    else if (s >= 0 && y - last > mg) { runs.push([s, last]); s = -1; }
+  }
+  if (s >= 0) runs.push([s, last]);
+  let foot = null;
+  if (runs.length) {
+    const L = runs[runs.length - 1], prevEnd = runs.length > 1 ? runs[runs.length - 2][1] : -1;
+    if (L[1] - L[0] < h * 0.05 && L[0] > h * 0.8 && L[0] - prevEnd > h * 0.02) foot = L;
+  }
+  const body = foot ? runs.slice(0, -1) : runs;
+  if (!body.length) return null;
+  const top = body[0][0], bottom = body[body.length - 1][1] + 1;
+  let a = w, z = -1;
+  for (const [r0, r1] of (foot ? [[top, bottom - 1], foot] : [[top, bottom - 1]])) for (let y = r0; y <= r1; y++) {
+    const b = y * w * 4; for (let x = 0; x < w; x++) { if (dark(b + x * 4)) { if (x < a) a = x; if (x > z) z = x; } }
+  }
+  if (z - a <= 10) return null;
+  return { x0: a / w, x1: (z + 1) / w, y0: top / h, y1: bottom / h };
+}
+/* Écran de recadrage : un cadre réglé sur une page, appliqué à toutes les pages */
+function cropScreen(file) {
+  return new Promise(res => {
+    const view = $('#cropView'), wrap = $('#cropWrap'), cvs = $('#cropCv'), box = $('#cropBox');
+    let doc = null, n = 1, rid = 0, done = false, mode = null, start = null;
+    let c = { x0: 0.04, y0: 0.03, x1: 0.96, y1: 0.93 };
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    const pct = v => (v * 100).toFixed(3) + '%';
+    const paint = () => { box.style.left = pct(c.x0); box.style.top = pct(c.y0); box.style.width = pct(c.x1 - c.x0); box.style.height = pct(c.y1 - c.y0); };
+    const finish = v => {
+      if (done) return; done = true; view.hidden = true;
+      try { doc && doc.destroy(); } catch {}
+      cvs.width = 0; cvs.height = 0; res(v);
+    };
+    const show = async k => {
+      const my = ++rid; n = k; $('#cropPage').textContent = k + ' / ' + doc.numPages;
+      const page = await doc.getPage(k);
+      const v1 = page.getViewport({ scale: 1 });
+      const sc = Math.min(2.2, Math.max(1, (Math.min(window.innerWidth, 720) * (window.devicePixelRatio || 1)) / v1.width));
+      const vp = page.getViewport({ scale: sc });
+      const tmp = document.createElement('canvas'); tmp.width = Math.round(vp.width); tmp.height = Math.round(vp.height);
+      const tx = tmp.getContext('2d', { willReadFrequently: true }); tx.fillStyle = '#fff'; tx.fillRect(0, 0, tmp.width, tmp.height);
+      await page.render({ canvasContext: tx, viewport: vp }).promise;
+      page.cleanup();
+      if (my !== rid || done) { tmp.width = 0; return; }
+      cvs.width = tmp.width; cvs.height = tmp.height; cvs.getContext('2d').drawImage(tmp, 0, 0); tmp.width = 0;
+      paint();
+    };
+    $('#cropClose').onclick = () => finish(null);
+    $('#cropGo').onclick = () => finish(Object.assign({}, c));
+    $('#cropReset').onclick = () => { c = { x0: 0, y0: 0, x1: 1, y1: 1 }; paint(); };
+    $('#cropAuto').onclick = () => {
+      const a = detectBox(cvs);
+      if (a) { c = a; paint(); } else toast('Détection impossible sur cette page : ajuste le cadre à la main.');
+    };
+    $('#cropPrev').onclick = () => { if (doc && n > 1) show(n - 1); };
+    $('#cropNext').onclick = () => { if (doc && n < doc.numPages) show(n + 1); };
+    wrap.onpointerdown = e => {
+      const r = wrap.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
+      const L = c.x0 * r.width, R = c.x1 * r.width, T = c.y0 * r.height, B = c.y1 * r.height, t = 34;
+      const dl = Math.abs(px - L), dr = Math.abs(px - R), dt = Math.abs(py - T), db = Math.abs(py - B);
+      const m = { l: dl < t && dl <= dr, r: dr < t && dr < dl, t: dt < t && dt <= db, b: db < t && db < dt };
+      m.move = !m.l && !m.r && !m.t && !m.b && px > L && px < R && py > T && py < B;
+      if (!(m.l || m.r || m.t || m.b || m.move)) return;
+      mode = m; start = { fx: px / r.width, fy: py / r.height, c: Object.assign({}, c) };
+      try { wrap.setPointerCapture(e.pointerId); } catch {}
+      e.preventDefault();
+    };
+    wrap.onpointermove = e => {
+      if (!mode) return;
+      const r = wrap.getBoundingClientRect();
+      const dx = (e.clientX - r.left) / r.width - start.fx, dy = (e.clientY - r.top) / r.height - start.fy, min = 0.05;
+      let { x0, y0, x1, y1 } = start.c;
+      if (mode.move) {
+        const w = x1 - x0, h = y1 - y0;
+        x0 = clamp(x0 + dx, 0, 1 - w); y0 = clamp(y0 + dy, 0, 1 - h); x1 = x0 + w; y1 = y0 + h;
+      } else {
+        if (mode.l) x0 = clamp(x0 + dx, 0, x1 - min);
+        if (mode.r) x1 = clamp(x1 + dx, x0 + min, 1);
+        if (mode.t) y0 = clamp(y0 + dy, 0, y1 - min);
+        if (mode.b) y1 = clamp(y1 + dy, y0 + min, 1);
+      }
+      c = { x0, y0, x1, y1 }; paint(); e.preventDefault();
+    };
+    wrap.onpointerup = wrap.onpointercancel = () => { mode = null; };
+    view.hidden = false; $('#cropPage').textContent = 'Chargement…';
+    (async () => {
+      try {
+        await ensurePdfJs();
+        doc = await window.pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+        await show(1);
+        const a = detectBox(cvs); if (a) { c = a; paint(); }
+      } catch (e) { console.error(e); toast('Impossible d\'ouvrir ce PDF pour le recadrer.'); finish(null); }
+    })();
+  });
+}
+function askKind() {
+  return new Promise(res => {
+    const d = $('#dlgKind'); let done = false;
+    const onClose = () => { if (!done) { done = true; res(null); } };
+    const fin = v => { if (done) return; done = true; d.removeEventListener('close', onClose); d.close(); res(v); };
+    d.querySelectorAll('button[data-k]').forEach(b => b.onclick = () => fin(b.dataset.k));
+    d.addEventListener('close', onClose);
+    d.showModal();
+  });
+}
 $('#pickPdf').onclick = () => { dlgAdd.close(); $('#pdfFile').click(); };
 $('#pdfFile').addEventListener('change', async e => {
   const files = Array.from(e.target.files || []).sort((x, y) => x.name.localeCompare(y.name, undefined, { numeric: true })); e.target.value = '';
@@ -3484,15 +3680,24 @@ $('#pdfFile').addEventListener('change', async e => {
   store.set('impType', ans.type);
   const mangaTitle = ans.title || 'Sans titre';
   const info = labelToChapterInfo(ans.chapter, guess.chapterLabel || baseName);
-  const type = ans.type, lang = ans.lang, webtoon = type !== 'pages';
+  let type = ans.type, crop = null;
+  const lang = ans.lang;
+  if (type === 'crop') {
+    crop = await cropScreen(file);
+    if (!crop) return;
+    type = await askKind();
+    if (!type) return;
+  }
+  const webtoon = type === 'webtoon' || type === 'manga';
+  const lbl = type === 'manga' ? 'manga' : type === 'webtoon' ? 'webtoon' : 'pages recadrées';
   const prog = (txt, r) => { say(txt); imp.show(txt, r); };
   prog('Préparation du PDF…', 0);
   try {
     let blobs = [];
-    if (webtoon) {
+    if (webtoon || crop) {
       blobs = await pdfToWebtoonBlobs(files, (k, nf, i, n) =>
-        prog('Lecture du PDF (' + (type === 'manga' ? 'manga' : 'webtoon') + ')… page ' + i + '/' + n + (nf > 1 ? ' · fichier ' + (k + 1) + '/' + nf : ''), 0.9 * (k + i / n) / nf),
-        { paginate: type === 'manga' });
+        prog('Lecture du PDF (' + lbl + ')… page ' + i + '/' + n + (nf > 1 ? ' · fichier ' + (k + 1) + '/' + nf : ''), 0.9 * (k + i / n) / nf),
+        { paginate: type === 'manga', crop, each: type === 'pages' });
     } else {
       for (let k = 0; k < files.length; k++) {
         const part = await pdfToImageBlobs(files[k], (i, n) =>
