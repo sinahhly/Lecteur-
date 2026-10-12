@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#f6f4fb">
+<meta name="theme-color" content="#fff6f9">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <title>Lecteur de chapitres</title>
@@ -22,7 +22,7 @@
 const THEMES = {
   clair:  { bg: '#f6f4fb', card: '#ffffff', text: '#1d1a33', accent: '#5b57e0' },
   sombre: { bg: '#131317', card: '#1e1e24', text: '#f1f0f6', accent: '#a4a2ff' },
-  perso:  { bg: '#1a1830', card: '#24213f', text: '#efeaff', accent: '#8b95ff' }
+  perso:  { bg: '#fff6f9', card: '#ffffff', text: '#4a2836', accent: '#f5a3bf' }
 };
 const PRESETS = [
   { n: 'Indigo nuit', bg: '#1a1830', card: '#24213f', text: '#efeaff', accent: '#8b95ff' },
@@ -43,9 +43,9 @@ function themeState() {
   try {
     let custom = JSON.parse(localStorage.getItem('themeCustom') || 'null');
     if (custom && custom.bg === '#fff5f7' && custom.accent === '#d6457a' && custom.text === '#3a1f2b') custom = { bg: '#fff6f9', card: '#ffffff', text: '#4a2836', accent: '#f5a3bf' };
-    return { mode: localStorage.getItem('themeMode') || 'clair', custom };
+    return { mode: localStorage.getItem('themeMode') || 'perso', custom };
   }
-  catch { return { mode: 'clair', custom: null }; }
+  catch { return { mode: 'perso', custom: null }; }
 }
 function themeColors() {
   const st = themeState();
