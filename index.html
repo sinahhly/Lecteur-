@@ -445,8 +445,10 @@ dialog[open]::backdrop{animation:fadeIn .2s ease}
 </style>
 <style>
 /* Plein écran iPhone : le contenu passe sous la barre d'état ; voile sombre pour garder l'heure et la batterie lisibles */
-body::before{content:"";position:fixed;top:0;left:0;right:0;height:calc(env(safe-area-inset-top,0px) * .8);z-index:100;pointer-events:none;
-  background:linear-gradient(to bottom,rgba(0,0,0,.18),rgba(0,0,0,0))}
+body.lock::before,body.lock::after{content:"";position:fixed;left:0;right:0;z-index:100;pointer-events:none;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+body.lock::before{top:0;height:calc(env(safe-area-inset-top,0px) * .9);background:linear-gradient(to bottom,rgba(0,0,0,.12),rgba(0,0,0,0));-webkit-mask-image:linear-gradient(to bottom,#000,transparent);mask-image:linear-gradient(to bottom,#000,transparent)}
+body.lock::after{bottom:0;height:calc(env(safe-area-inset-bottom,0px) + 24px);background:linear-gradient(to top,rgba(0,0,0,.12),rgba(0,0,0,0));-webkit-mask-image:linear-gradient(to top,#000,transparent);mask-image:linear-gradient(to top,#000,transparent)}
+body.lock:has(#reader:not(.ui-off))::after{opacity:0}
 </style>
 <style>
 /* Images empilées : recouvrement d'1 px, supprime la fine ligne entre deux images */
@@ -458,6 +460,10 @@ dialog h3{padding-right:30px}
 /* Bande du bas du lecteur : noire (comme le lecteur) au lieu de la couleur du thème */
 body.lock,html:has(body.lock){background:#000}
 .primary.danger{background:#d9534f;color:#fff}
+/* Lecteur à défilement natif : c'est la page entière qui défile, elle peut donc continuer sous la zone du bas */
+body.lock.docscroll{overflow:visible!important;background:#000}
+body.lock.docscroll #view-lib,body.lock.docscroll #view-browse,body.lock.docscroll #view-source,body.lock.docscroll #view-manga,body.lock.docscroll #tabbar,body.lock.docscroll .fab{display:none!important}
+body.lock.docscroll #reader{position:relative;inset:auto;min-height:100vh;height:auto;overflow:visible}
 /* Barre de lecture : progression + chapitre précédent / suivant */
 .rbar{position:fixed;left:0;right:0;bottom:0;z-index:5;display:flex;align-items:center;gap:8px;padding:8px 12px calc(env(safe-area-inset-bottom,0px) + 8px);background:var(--barre);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);transition:transform .2s,opacity .2s}
 .rbar.hide{transform:translateY(100%);opacity:0;pointer-events:none}
@@ -768,6 +774,12 @@ html.sa #pages.mode-h .chDivider,html.sa #pages.mode-single .chDivider,html.sa #
       <option value="translucent">Transparente : la page passe sous l'heure</option>
     </select>
     <p>Ferme complètement l'app puis rouvre-la pour appliquer. Si une bande noire gêne en bas du lecteur, garde « Noire ».</p>
+    <label for="setDoc">Défilement du lecteur (webtoon)</label>
+    <select id="setDoc">
+      <option value="1">Natif : la page continue sous la zone du bas (essai)</option>
+      <option value="0">Classique</option>
+    </select>
+    <p>S'applique à l'ouverture du prochain chapitre. Si le lecteur se comporte mal, repasse sur « Classique ».</p>
     <label for="setProxy">Proxy pour lire les pages (facultatif)</label>
     <input id="setProxy" type="text" spellcheck="false" autocapitalize="off">
     <p>Certains sites refusent qu'une page web lise leur contenu. Le proxy sert d'intermédiaire, mais les liens passent alors par ce service. Laisse vide pour ne pas en utiliser.</p>
@@ -2766,6 +2778,7 @@ function computeMode() {
 }
 function applyReaderMode() {
   const mode = computeMode();
+  document.body.classList.toggle('docscroll', mode === 'vertical' && store.get('docscroll', '1') === '1');
   const box = $('#pages');
   box.classList.remove('mode-h', 'mode-single', 'mode-double');
   if (mode === 'horizontal') box.classList.add('mode-h');
@@ -2919,7 +2932,7 @@ async function openChapter(ch, startIdx) {
   box.appendChild(endEl);
   $('#reader').hidden = false;
   document.body.classList.add('lock');
-  $('#reader').scrollTop = 0; box.scrollLeft = 0;
+  $('#reader').scrollTop = 0; box.scrollLeft = 0; window.scrollTo(0, 0);
   $('#bar').classList.remove('hide');
   $('#count').classList.remove('hide'); $('#rbar').classList.remove('hide');
   exitFullscreen();
@@ -2960,7 +2973,7 @@ function setupEndObserver() {
   const endEl = ends[ends.length - 1];
   if (!endEl) return;
   const mode = computeMode();
-  const root = mode === 'vertical' ? $('#reader') : $('#pages');
+  const root = mode === 'vertical' ? (document.body.classList.contains('docscroll') ? null : $('#reader')) : $('#pages');
   endObserver = new IntersectionObserver(entries => {
     entries.forEach(en => {
       if (en.isIntersecting && en.intersectionRatio > 0.6 && !loadingNext) {
@@ -3016,7 +3029,8 @@ function closeReader() {
   exitFullscreen();
   if (endObserver) { endObserver.disconnect(); endObserver = null; }
   $('#reader').hidden = true;
-  document.body.classList.remove('lock');
+  document.body.classList.remove('lock', 'docscroll');
+  window.scrollTo(0, 0);
   $('#pages').innerHTML = '';
   objUrls.forEach(u => URL.revokeObjectURL(u)); objUrls = [];
   cur = null;
@@ -3082,7 +3096,8 @@ $('#rProg').addEventListener('input', e => {
   if (!figs.length) return;
   if (vertical) {
     const a = figs[0].getBoundingClientRect(), b = figs[figs.length - 1].getBoundingClientRect(), total = b.bottom - a.top - innerHeight;
-    $('#reader').scrollTop += frac * total + a.top;
+    const d = frac * total + a.top;
+    if (document.body.classList.contains('docscroll')) window.scrollBy(0, d); else $('#reader').scrollTop += d;
   } else gotoPage(Math.round(frac * (figs.length - 1)));
 });
 const endSeek = () => { rSeeking = false; };
@@ -3124,6 +3139,10 @@ $('#reader').addEventListener('scroll', () => {
   requestAnimationFrame(() => { ticking = false; onScroll(); });
 }, { passive: true });
 $('#pages').addEventListener('scroll', () => {
+  if (ticking) return; ticking = true;
+  requestAnimationFrame(() => { ticking = false; onScroll(); });
+}, { passive: true });
+window.addEventListener('scroll', () => {
   if (ticking) return; ticking = true;
   requestAnimationFrame(() => { ticking = false; onScroll(); });
 }, { passive: true });
@@ -4102,7 +4121,7 @@ $('#fab').onclick = $('#emptyAdd').onclick = () => openAdd();
 /* ---------- Réglages ---------- */
 const dlgSet = $('#dlgSet');
 function openSettings() {
-  $('#setProxy').value = cfg.proxy; $('#setLang').value = cfg.lang; $('#setTarget').value = cfg.target; $('#setMtEmail').value = cfg.mtEmail || ''; $('#setSbar').value = store.get('sbar', 'black'); syncThemeUI();
+  $('#setProxy').value = cfg.proxy; $('#setLang').value = cfg.lang; $('#setTarget').value = cfg.target; $('#setMtEmail').value = cfg.mtEmail || ''; $('#setSbar').value = store.get('sbar', 'black'); $('#setDoc').value = store.get('docscroll', '1'); syncThemeUI();
   $('#setGClientId').value = cfg.gClientId;
   $('#setSyncPages').checked = cfg.syncPages;
   $('#setSyncAuto').checked = cfg.syncAuto;
@@ -4116,7 +4135,7 @@ dlgSet.addEventListener('close', () => {
   cfg.proxy = $('#setProxy').value.trim(); cfg.lang = $('#setLang').value; cfg.target = $('#setTarget').value;
   store.set('proxy', cfg.proxy); store.set('lang', cfg.lang); store.set('target', cfg.target);
   cfg.mtEmail = $('#setMtEmail').value.trim(); store.set('mtEmail', cfg.mtEmail);
-  const sbChanged = $('#setSbar').value !== store.get('sbar', 'black'); store.set('sbar', $('#setSbar').value);
+  const sbChanged = $('#setSbar').value !== store.get('sbar', 'black'); store.set('sbar', $('#setSbar').value); store.set('docscroll', $('#setDoc').value);
   const newClientId = $('#setGClientId').value.trim();
   if (newClientId !== cfg.gClientId) gTokenClient = null;
   cfg.gClientId = newClientId; cfg.syncPages = $('#setSyncPages').checked; cfg.syncAuto = $('#setSyncAuto').checked;
@@ -4305,19 +4324,6 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   document.body.removeChild(probe);
   var info = ' (écran ' + Math.max(screen.width, screen.height) + ', page ' + window.innerHeight + ', marge haut ' + insT + ', bas ' + insB + ')';
   if (setForm) setForm.insertAdjacentHTML('afterbegin', '<p class="hint">Affichage actuel : ' + (isApp ? 'app installée, barre d\'état ' + (sbar === 'translucent' ? 'transparente' : 'noire') + '.' : 'dans Safari (la barre du bas ne peut pas être retirée ; ouvre l\'app depuis son icône).') + info + '</p>');
-  if (isApp && sbar === 'translucent') {
-    document.documentElement.classList.add('sa');
-    var els = ['reader', 'dim'].map(function (id) { return document.getElementById(id); }).filter(Boolean);
-    var fit = function () {
-      var land = window.innerWidth > window.innerHeight;
-      var h = land ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height);
-      document.documentElement.style.setProperty('--fullh', h + 'px');
-      els.forEach(function (el) { el.style.position = 'absolute'; el.style.top = '0'; el.style.left = '0'; el.style.right = '0'; el.style.bottom = 'auto'; el.style.height = h + 'px'; });
-    };
-    fit();
-    window.addEventListener('resize', fit);
-    window.addEventListener('orientationchange', function () { setTimeout(fit, 250); });
-  }
 })();
 </script>
 </body>
