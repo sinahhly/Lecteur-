@@ -447,6 +447,18 @@ dialog[open]::backdrop{animation:fadeIn .2s ease}
 body::before{content:"";position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);z-index:100;pointer-events:none;
   background:linear-gradient(to bottom,rgba(0,0,0,.6),rgba(0,0,0,0))}
 </style>
+<style>
+/* Images empilées : recouvrement d'1 px, supprime la fine ligne entre deux images */
+#pages:not(.mode-h):not(.mode-single):not(.mode-double) .pg + .pg{margin-top:-1px}
+/* Croix pour fermer les fenêtres */
+.xClose{position:sticky;top:6px;display:block;width:34px;height:34px;margin:0 0 -34px auto;padding:0;border:0;border-radius:99px;background:rgba(127,127,127,.2);color:inherit;font-size:16px;line-height:34px;text-align:center;z-index:3}
+/* Plein écran de l'app installée : le lecteur couvre tout l'écran, y compris sous la barre du bas */
+html.sa #pages.mode-h,html.sa #pages.mode-single,html.sa #pages.mode-double{height:var(--fullh)}
+html.sa #pages.mode-h .pg,html.sa #pages.mode-single .pg,html.sa #pages.mode-double .pg{height:var(--fullh)}
+html.sa #pages.mode-single .pg img,html.sa #pages.mode-double .pg img{max-height:var(--fullh)}
+html.sa #pages.mode-h .end,html.sa #pages.mode-single .end,html.sa #pages.mode-double .end,
+html.sa #pages.mode-h .chDivider,html.sa #pages.mode-single .chDivider,html.sa #pages.mode-double .chDivider{height:var(--fullh)}
+</style>
 </head>
 <body>
 
@@ -867,7 +879,7 @@ const idb = (() => {
       const t = db.transaction(store, mode);
       const rq = fn(t.objectStore(store));
       t.oncomplete = () => res(rq ? rq.result : undefined);
-      t.onerror = t.onabort = () => rej(t.error);
+      t.onerror = t.onabort = () => rej(t.error || (rq && rq.error) || new Error('Stockage plein ou refusé par l\'iPhone'));
     });
   };
   return {
@@ -3034,7 +3046,7 @@ async function pdfToImageBlobs(file, onProgress) {
     const vp = page.getViewport({ scale: 2 });
     const canvas = document.createElement('canvas'); canvas.width = vp.width; canvas.height = vp.height;
     await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
-    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.92));
+    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.85));
     if (blob) out.push(blob);
     if (onProgress) onProgress(i, doc.numPages);
   }
@@ -3046,7 +3058,7 @@ async function pdfToWebtoonBlobs(files, onProgress) {
   await ensurePdfJs();
   const CH = 6000, out = [];
   let X0 = -1, W = 0, strip = null, sy = 0;
-  const toBlob = c => new Promise(res => c.toBlob(res, 'image/jpeg', 0.92));
+  const toBlob = c => new Promise(res => c.toBlob(res, 'image/jpeg', 0.85));
   const flush = async () => {
     if (!strip || sy <= 0) return;
     let c = strip;
@@ -3084,15 +3096,15 @@ async function pdfToWebtoonBlobs(files, onProgress) {
       }
       const body = foot ? runs.slice(0, -1) : runs;
       if (body.length) {
-        const top = body[0][0], bottom = body[body.length - 1][1] + 1;
+        const top = body[0][0] + 2, bottom = body[body.length - 1][1] - 1; // 2 px rognés de chaque côté de la coupure : supprime la fine ligne blanche
         // largeur utile : fixée une fois pour toutes sur la 1re page (image + pied de page)
         if (X0 < 0) {
           let a = w, z = -1;
           const spans = foot ? [[top, bottom - 1], foot] : [[top, bottom - 1]];
           for (const [r0, r1] of spans) for (let y = r0; y <= r1; y++) { const b = y * w * 4; for (let x = 0; x < w; x++) { if (dark(b + x * 4)) { if (x < a) a = x; if (x > z) z = x; } } }
-          if (z > a) { X0 = a; W = Math.min(w - a, z - a + 1); }
+          if (z - a > 10) { X0 = a + 1; W = Math.min(w - a - 1, z - a - 1); }
         }
-        if (X0 >= 0) {
+        if (X0 >= 0 && bottom > top) {
           let srcY = top, remain = bottom - top;
           while (remain > 0) {
             if (!strip) { strip = document.createElement('canvas'); strip.width = W; strip.height = CH; sy = 0; }
@@ -3143,13 +3155,20 @@ $('#pdfFile').addEventListener('change', async e => {
     const ch = { id: newId(), mangaId: manga.id, title: info.title || 'Chapitre PDF', num: info.num,
       source: 'pdf:' + Date.now(), added: Date.now(), read: false, pages: blobs.map(() => ({ url: null, saved: true })) };
     say('Enregistrement des pages…');
-    for (let i = 0; i < blobs.length; i++) await idb.putBlob(ch.id + ':' + i, blobs[i]);
+    try { for (let i = 0; i < blobs.length; i++) await idb.putBlob(ch.id + ':' + i, blobs[i]); }
+    catch (e) { for (let j = 0; j < blobs.length; j++) await idb.delBlob(ch.id + ':' + j).catch(() => {}); throw e; }
     await idb.putChapter(ch); await attachCoverIfMissing(manga); say('');
     // Confirmation explicite : signe visible que l'import a réussi et que le chapitre est bien
     // dans la bibliothèque, même si on enchaîne directement sur l'ouverture du lecteur.
     toast('« ' + manga.title + ' » — ' + ch.title + ' importé et ajouté à la bibliothèque.');
     curMangaId = manga.id; openChapter(ch);
-  } catch (err) { console.error(err); say('Impossible de lire ce PDF. (' + ((err && err.message) || err) + ')', true); }
+  } catch (err) {
+    console.error(err);
+    const m = (err && err.message) || '';
+    say(/stockage|quota/i.test(m + ' ' + ((err && err.name) || ''))
+      ? 'Espace de stockage insuffisant sur l\'iPhone : libère de la place (Réglages > Général > Stockage de l\'iPhone), puis réessaie. Rien n\'a été gardé de cet import.'
+      : 'Impossible de lire ce PDF. (' + (m || err || 'erreur inconnue') + ')', true);
+  }
 });
 
 /* ---------- Export d'un ou plusieurs chapitres en PDF ---------- */
@@ -3501,6 +3520,34 @@ if (cfg.syncAuto && cfg.gClientId) syncNow(false).catch(() => {});
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 }
+</script>
+<script>
+(function () {
+  document.querySelectorAll('dialog').forEach(function (d) {
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'xClose';
+    b.setAttribute('aria-label', 'Fermer'); b.textContent = '\u2715';
+    b.addEventListener('click', function () { d.close(); });
+    d.insertBefore(b, d.firstChild);
+    d.addEventListener('click', function (e) {
+      if (e.target !== d) return;
+      var r = d.getBoundingClientRect();
+      if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) d.close();
+    });
+  });
+  if (navigator.standalone) {
+    document.documentElement.classList.add('sa');
+    var els = ['reader', 'dim'].map(function (id) { return document.getElementById(id); }).filter(Boolean);
+    var fit = function () {
+      var land = window.innerWidth > window.innerHeight;
+      var h = land ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height);
+      document.documentElement.style.setProperty('--fullh', h + 'px');
+      els.forEach(function (el) { el.style.bottom = 'auto'; el.style.height = h + 'px'; });
+    };
+    fit();
+    window.addEventListener('resize', fit);
+    window.addEventListener('orientationchange', function () { setTimeout(fit, 250); });
+  }
+})();
 </script>
 </body>
 </html>
