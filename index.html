@@ -695,16 +695,20 @@ html.sa #pages.mode-h .chDivider,html.sa #pages.mode-single .chDivider,html.sa #
 <dialog id="dlgVAdd" class="sheet">
   <form id="vaForm" novalidate autocomplete="off">
     <h3 id="vaH">Ajouter une vidéo</h3>
-    <label for="vaTitle">Nom de la série ou du film</label>
-    <input id="vaTitle" type="text" list="vaList" autocapitalize="words" placeholder="Ex. Frieren, Crash Landing on You">
-    <datalist id="vaList"></datalist>
-    <label for="vaType">Type</label>
-    <select id="vaType"><option>Anime</option><option>K-drama</option><option>Série</option><option>Film</option></select>
-    <label for="vaLinks">Liens, un par ligne</label>
-    <textarea id="vaLinks" spellcheck="false" autocapitalize="off" placeholder="https://…/episode1.mp4&#10;Épisode 2 | https://…/episode2.m3u8"></textarea>
-    <p>Lien direct (.mp4, .webm) : lecture + téléchargement hors ligne. Flux .m3u8, YouTube, Vimeo ou page d'un site : lecture en ligne seulement. Tu peux écrire un titre avant le lien, séparé par « | ».</p>
-    <label for="vaPoster">Affiche (lien, facultatif)</label>
-    <input id="vaPoster" type="url" inputmode="url" placeholder="https://…" autocapitalize="off" spellcheck="false">
+    <p class="hint">Colle un lien, c'est tout : le nom, l'affiche, le type et le numéro d'épisode sont trouvés tout seuls.</p>
+    <textarea id="vaLinks" spellcheck="false" autocapitalize="off" placeholder="https://…  (un lien par ligne)"></textarea>
+    <div class="alt"><button id="vaPaste" class="link" type="button">Coller depuis le presse-papiers</button></div>
+    <p>Épisode, film ou série : lien direct (.mp4, .webm), flux .m3u8, YouTube, Vimeo ou page d'un site. Adresse d'un site (accueil) : il est rangé dans « Sites » pour l'ouvrir ici. Seuls les liens directs se téléchargent pour le hors ligne.</p>
+    <details id="vaMore" style="margin-top:10px">
+      <summary class="link">Options (facultatif)</summary>
+      <label for="vaTitle">Nom (si le lien ne le donne pas)</label>
+      <input id="vaTitle" type="text" list="vaList" autocapitalize="words">
+      <datalist id="vaList"></datalist>
+      <label for="vaType">Type</label>
+      <select id="vaType"><option value="">Automatique</option><option>Anime</option><option>K-drama</option><option>Série</option><option>Film</option><option>Site</option></select>
+      <label for="vaPoster">Affiche (lien)</label>
+      <input id="vaPoster" type="url" inputmode="url" placeholder="https://…" autocapitalize="off" spellcheck="false">
+    </details>
     <p id="vaMsg" role="status" aria-live="polite"></p>
     <div class="alt vaFiles"><button id="vaFiles" class="link" type="button">Importer des vidéos de l'appareil (hors ligne direct)</button></div>
     <div class="row">
@@ -4452,9 +4456,9 @@ async function importFromHash() {
 window.addEventListener('hashchange', importFromHash);
 
 /* ---------- Vidéos : animes, k-dramas, séries, films ---------- */
-const VTYPES = ['Anime', 'K-drama', 'Série', 'Film'];
-const VFILTERS = [['all', 'Tous'], ['fav', 'Favoris'], ['Anime', 'Anime'], ['K-drama', 'K-drama'], ['Série', 'Séries'], ['Film', 'Films']];
-const VKIND_TXT = { file: 'lien direct', hls: 'flux .m3u8', embed: 'lecteur intégré', page: 'page web', local: 'fichier de l\'appareil' };
+const VTYPES = ['Anime', 'K-drama', 'Série', 'Film', 'Site'];
+const VFILTERS = [['all', 'Tous'], ['fav', 'Favoris'], ['Anime', 'Anime'], ['K-drama', 'K-drama'], ['Série', 'Séries'], ['Film', 'Films'], ['Site', 'Sites']];
+const VKIND_TXT = { file: 'lien direct', hls: 'flux .m3u8', embed: 'lecteur intégré', page: 'page web', local: 'fichier de l\'appareil', site: 'site' };
 const ICON_PLAYWEB = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M10 8.5v7l5.5-3.5z"/></svg>';
 const vProg = new Map();
 let curShowId = null, vEps = [], vCur = null, vVideo = null, vHls = null, vBlobUrl = null, vLastSave = 0, vWake = null;
@@ -4715,12 +4719,12 @@ const dlgVAdd = $('#dlgVAdd');
 function vaSay(t, err) { const m = $('#vaMsg'); m.textContent = t || ''; m.className = err ? 'err' : ''; }
 async function vOpenAdd(showId) {
   const shows = await idb.listShows();
-  $('#vaList').innerHTML = (shows || []).map(s => '<option value="' + s.title.replace(/"/g, '&quot;') + '">').join('');
-  const s = showId && (shows || []).find(x => x.id === showId);
-  $('#vaTitle').value = s ? s.title : ''; $('#vaTitle').readOnly = !!s;
-  $('#vaType').value = s ? (s.type || 'Anime') : store.get('vLastType', 'Anime'); $('#vaType').disabled = !!s;
-  $('#vaLinks').value = ''; $('#vaPoster').value = ''; $('#vaPoster').parentElement; vaSay('');
-  $('#vaH').textContent = s ? 'Ajouter des épisodes' : 'Ajouter une vidéo';
+  $('#vaList').innerHTML = (shows || []).map(x => '<option value="' + x.title.replace(/"/g, '&quot;') + '">').join('');
+  const sh = showId && (shows || []).find(x => x.id === showId);
+  $('#vaTitle').value = sh ? sh.title : ''; $('#vaTitle').readOnly = !!sh;
+  $('#vaType').value = sh ? (sh.type || 'Anime') : ''; $('#vaType').disabled = !!sh;
+  $('#vaLinks').value = ''; $('#vaPoster').value = ''; $('#vaMore').open = false; vaSay('');
+  $('#vaH').textContent = sh ? 'Ajouter des épisodes' : 'Ajouter une vidéo';
   dlgVAdd.showModal();
 }
 $('#vAddBtn').onclick = $('#vEmptyAdd').onclick = $('#vFab').onclick = () => vOpenAdd(null);
@@ -4729,21 +4733,78 @@ $('#openSettings3').onclick = openSettings;
 
 async function vResolveShow(title, type, poster) {
   const shows = await idb.listShows(), key = norm(title);
-  let s = (shows || []).find(x => norm(x.title) === key);
-  if (s) return s;
-  s = { id: vId('s'), title, type, fav: false, addedAt: Date.now(), coverType: poster ? 'url' : null, coverUrl: poster || '' };
-  await idb.putShow(s);
-  if (!poster && type === 'Anime') vAniCover(title).then(async u => { if (u) { s.coverType = 'url'; s.coverUrl = u; await idb.putShow(s); if (!$('#view-vid').hidden) renderVid(); } });
-  return s;
+  let sh = (shows || []).find(x => norm(x.title) === key);
+  if (sh) return sh;
+  sh = { id: vId('s'), title, type, fav: false, addedAt: Date.now(), coverType: poster ? 'url' : null, coverUrl: poster || '' };
+  await idb.putShow(sh);
+  if (!poster && type === 'Anime') vAniCover(title).then(async u => { if (u) { sh.coverType = 'url'; sh.coverUrl = u; await idb.putShow(sh); if (!$('#view-vid').hidden) renderVid(); } });
+  return sh;
 }
-function vNextN(show) { return vEps.filter(e => e.showId === show.id).reduce((m, e) => Math.max(m, e.n || 0), 0); }
-async function vExisting(show) { return ((await idb.listEpisodes()) || []).filter(e => e.showId === show.id); }
+const vTimeout = (pr, ms) => Promise.race([pr, new Promise((_, rej) => setTimeout(() => rej(new Error('délai')), ms))]);
+const vHost = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
+function vIsSite(u) { try { const x = new URL(u); return (x.pathname === '/' || x.pathname === '') && !x.search; } catch { return false; } }
+function vFromUrl(u) {
+  try {
+    const x = new URL(u); const segs = x.pathname.split('/').filter(Boolean);
+    let last = decodeURIComponent(segs[segs.length - 1] || '').replace(/\.[a-z0-9]{2,4}$/i, '');
+    if (/^(index|master|playlist|video|stream|\d+)$/i.test(last) && segs.length > 1) last = decodeURIComponent(segs[segs.length - 2]) + ' ' + (/^\d+$/.test(last) ? last : '');
+    return last.replace(/[-_.+]+/g, ' ').replace(/\s+/g, ' ').trim().replace(/(^|\s)([a-zà-ÿ])/g, (m, a, b) => a + b.toUpperCase());
+  } catch { return ''; }
+}
+/* Sépare « Frieren - Episode 12 VOSTFR | Site » en { show, label, num } */
+function vSplit(raw) {
+  let t = String(raw || '').replace(/\s+/g, ' ').trim();
+  const parts = t.split(/\s+[|–—·»]\s+|\s+-\s+(?=[^-]*$)/);
+  if (parts.length > 1) {
+    const siteish = x => /(streaming|watch|regarder|online|gratuit|free|\.com|\.net|\.org|\.tv|\.fr|\.to|\.io)/i.test(x) || x.split(' ').length <= 2;
+    const keep = parts.filter((x, i) => !(i > 0 && siteish(x) && !/(episode|épisode|\bep\b|\be\d)/i.test(x)));
+    t = keep.join(' - ');
+  }
+  let num = null;
+  const epRe = /(?:^|[\s\-–—:(\[])(?:(?:[ée]pisodes?|ep\.?|e)\s*\.?\s*0*(\d{1,4})|(?:s\d{1,2}\s*e|\d{1,2}x)0*(\d{1,4}))(?=$|[\s\-–—:)\]])/i;
+  let m = t.match(epRe);
+  if (!m) m = t.match(/\s0*(\d{1,4})\s*(?:vostfr|vf|vostfr\s*hd|hd|fr|sub|eng)?\s*$/i);
+  let show = t;
+  if (m) { num = +(m[1] || m[2]); show = t.slice(0, m.index); }
+  show = show.replace(/\b(vostfr|vf|multi|streaming|hd|fhd|1080p|720p|saison\s*\d+|season\s*\d+|s\d{1,2})\b/ig, ' ').replace(/[\s\-–—:|,(\[]+$/g, '').replace(/\s+/g, ' ').trim();
+  if (!show) show = t.replace(/\s+/g, ' ').trim();
+  return { show, num, label: num != null ? 'Épisode ' + num : null };
+}
+function vGuessType(url, title) {
+  const x = (url + ' ' + title).toLowerCase();
+  if (/k-?drama|kdrama|korean|coreen|coréen|asian ?drama|dorama/.test(x)) return 'K-drama';
+  if (/anime|vostfr|manga/.test(x)) return 'Anime';
+  if (/\b(film|movie)\b/.test(x)) return 'Film';
+  return null;
+}
+async function vMeta(it) {
+  const out = { title: '', poster: '' };
+  try {
+    if (/(^|\.)youtube\.com$|(^|\.)youtu\.be$/.test(vHost(it.url))) {
+      const r = await vTimeout(fetch('https://www.youtube.com/oembed?format=json&url=' + encodeURIComponent(it.url)), 6000);
+      if (r.ok) { const j = await r.json(); out.title = j.title || ''; out.poster = ''; }
+    } else if (it.kind === 'page' || it.kind === 'embed') {
+      const html = await vTimeout(fetchText(it.url), 9000);
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const g = q => { const e = doc.querySelector(q); return e ? (e.getAttribute('content') || '').trim() : ''; };
+      out.title = g('meta[property="og:title"]') || g('meta[name="twitter:title"]') || (doc.title || '').trim();
+      const img = g('meta[property="og:image"]') || g('meta[name="twitter:image"]');
+      if (img) { try { out.poster = new URL(img, it.url).href; } catch {} }
+    }
+  } catch {}
+  if (!out.title) out.title = vFromUrl(it.url);
+  return out;
+}
+
+$('#vaPaste').onclick = async () => {
+  try { const t = (await navigator.clipboard.readText() || '').trim(); if (!t) { vaSay('Le presse-papiers est vide.', true); return; } const c = $('#vaLinks'); c.value = c.value ? c.value.replace(/\s+$/, '') + '\n' + t : t; vaSay(''); }
+  catch { vaSay('Colle le lien directement dans la zone (appui long, Coller).', true); }
+};
 
 $('#vaForm').addEventListener('submit', async ev => {
   ev.preventDefault();
-  const title = $('#vaTitle').value.trim(), type = $('#vaType').value, poster = $('#vaPoster').value.trim();
-  const lines = $('#vaLinks').value.split(/\n+/).map(s => s.trim()).filter(Boolean);
-  if (!title) { vaSay('Donne un nom à la série ou au film.', true); return; }
+  const manual = $('#vaTitle').value.trim(), forced = $('#vaType').value, poster0 = $('#vaPoster').value.trim();
+  const lines = $('#vaLinks').value.split(/\n+/).map(x => x.trim()).filter(Boolean);
   if (!lines.length) { vaSay('Colle au moins un lien, ou importe une vidéo de l\'appareil.', true); return; }
   const items = [];
   for (const ln of lines) {
@@ -4751,54 +4812,70 @@ $('#vaForm').addEventListener('submit', async ev => {
     if (!c) { vaSay('Pas de lien valide dans : « ' + ln.slice(0, 40) + ' »', true); return; }
     items.push(Object.assign(c, { label: ln.slice(0, m.index).replace(/[|:\-–—\s]+$/, '').trim() }));
   }
-  store.set('vLastType', type);
-  const show = await vResolveShow(title, type, poster), have = await vExisting(show);
-  let n = have.reduce((mx, e) => Math.max(mx, e.n || 0), 0), added = 0;
-  const known = new Set(have.map(e => nk(e.url)));
-  for (const it of items) {
-    if (known.has(nk(it.url))) continue;
-    n++;
-    const num = vNum(it.label), ep = {
-      id: vId('e'), showId: show.id, title: it.label || (type === 'Film' && items.length === 1 && !have.length ? 'Film' : 'Épisode ' + n),
-      n: num != null ? num : n, url: it.url, kind: it.kind, saved: false, watched: false, added: Date.now() + added
-    };
-    if (it.embed) ep.embed = it.embed;
-    await idb.putEpisode(ep); known.add(nk(it.url)); added++;
-  }
+  const go = $('#vaGo'); go.disabled = true; go.textContent = 'Recherche…'; vaSay('Lecture des infos du lien…');
+  const cache = new Map(), touched = new Set(); let added = 0, lastShow = null, order = 0;
+  try {
+    for (const it of items) {
+      let sh = null, label = it.label, num = vNum(label), ep;
+      const have0 = await idb.listEpisodes();
+      if (have0.some(e => nk(e.url) === nk(it.url))) continue;
+      if (vIsSite(it.url) && !forced) {
+        sh = await vResolveShow(vHost(it.url), 'Site', '');
+        ep = { id: vId('e'), showId: sh.id, title: 'Ouvrir ' + vHost(it.url), n: 1, url: it.url, kind: 'page', embed: it.url, saved: false, watched: false, added: Date.now() + order++ };
+      } else {
+        const meta = await vMeta(it), sp = vSplit(meta.title);
+        const title = manual || sp.show || vHost(it.url) || 'Sans titre';
+        let type = forced || vGuessType(it.url, meta.title);
+        const k = norm(title);
+        if (!type) { const cv = await vAniCover(title); type = cv ? 'Anime' : (cache.get(k) || 'Série'); if (cv && !poster0 && !meta.poster) meta.poster = cv; }
+        cache.set(k, type);
+        sh = await vResolveShow(title, type, poster0 || (type === 'Anime' ? '' : meta.poster));
+        const have = have0.filter(e => e.showId === sh.id);
+        const n = have.reduce((mx, e) => Math.max(mx, e.n || 0), 0) + 1;
+        const isFilm = type === 'Film' && sp.num == null && !label;
+        if (!label) label = sp.label || (isFilm ? 'Film' : 'Épisode ' + n);
+        if (num == null) num = sp.num != null ? sp.num : n;
+        ep = { id: vId('e'), showId: sh.id, title: label, n: num, url: it.url, kind: it.kind, saved: false, watched: false, added: Date.now() + order++ };
+        if (it.embed) ep.embed = it.embed;
+      }
+      await idb.putEpisode(ep); added++; touched.add(sh.id); lastShow = sh;
+    }
+  } catch { vaSay('Impossible d\'ajouter ce lien pour le moment.', true); go.disabled = false; go.textContent = 'Ajouter'; return; }
+  go.disabled = false; go.textContent = 'Ajouter'; vaSay('');
   dlgVAdd.close();
-  toast(added ? added + ' épisode(s) ajouté(s).' : 'Ces liens étaient déjà dans la série.');
-  await vOpenShow(show.id);
-  if ($('#view-vid').hidden === false) renderVid();
+  toast(added ? added + ' ajouté(s)' + (touched.size > 1 ? ' dans ' + touched.size + ' séries.' : ' : ' + lastShow.title) : 'Ces liens étaient déjà ajoutés.');
+  if (lastShow && touched.size === 1) await vOpenShow(lastShow.id);
+  else if (!$('#view-vid').hidden) renderVid();
+  if ($('#view-vid').hidden && $('#view-show').hidden) showView('vid');
 });
 
 /* Import de fichiers vidéo de l'appareil (toujours hors ligne) */
-$('#vaFiles').onclick = () => {
-  if (!$('#vaTitle').value.trim()) { vaSay('Donne d\'abord un nom à la série ou au film.', true); return; }
-  $('#vFiles').click();
-};
+$('#vaFiles').onclick = () => $('#vFiles').click();
 $('#vFiles').addEventListener('change', async ev => {
   const files = [...(ev.target.files || [])]; ev.target.value = '';
   if (!files.length) return;
-  const title = $('#vaTitle').value.trim(), type = $('#vaType').value, poster = $('#vaPoster').value.trim();
+  const manual = $('#vaTitle').value.trim(), forced = $('#vaType').value, poster = $('#vaPoster').value.trim();
   files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
-  const show = await vResolveShow(title, type, poster), have = await vExisting(show);
-  let n = have.reduce((mx, e) => Math.max(mx, e.n || 0), 0), ok = 0;
   dlgVAdd.close();
   try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch {}
+  let ok = 0, lastShow = null; const touched = new Set();
   for (let i = 0; i < files.length; i++) {
     const f = files[i]; imp.show('Import ' + (i + 1) + '/' + files.length + ' : ' + f.name, i / files.length);
     try {
-      const label = f.name.replace(/\.[^.]+$/, '').replace(/[_.]+/g, ' ').trim();
-      n++;
-      const ep = { id: vId('e'), showId: show.id, title: label || 'Épisode ' + n, n: vNum(label) != null ? vNum(label) : n, url: '', kind: 'local', saved: true, size: f.size, watched: false, added: Date.now() + i };
+      const base = f.name.replace(/\.[^.]+$/, '').replace(/[_.]+/g, ' ').trim(), sp = vSplit(base);
+      const title = manual || sp.show || 'Vidéos importées';
+      const type = forced || vGuessType('', base) || 'Série';
+      const sh = await vResolveShow(title, type, poster), have = (await idb.listEpisodes()).filter(e => e.showId === sh.id);
+      const n = have.reduce((mx, e) => Math.max(mx, e.n || 0), 0) + 1;
+      const ep = { id: vId('e'), showId: sh.id, title: sp.label || (sp.num == null && sp.show === base ? base : 'Épisode ' + n), n: sp.num != null ? sp.num : n, url: '', kind: 'local', saved: true, size: f.size, watched: false, added: Date.now() + i };
       const blob = f.type && /^video\//.test(f.type) ? f : new Blob([f], { type: /\.webm$/i.test(f.name) ? 'video/webm' : 'video/mp4' });
-      await idb.putBlob('vid:' + ep.id, blob); await idb.putEpisode(ep); ok++;
+      await idb.putBlob('vid:' + ep.id, blob); await idb.putEpisode(ep); ok++; touched.add(sh.id); lastShow = sh;
     } catch { toast('Import impossible pour « ' + f.name + ' » (plus assez de place ?).'); break; }
   }
   imp.hide();
   if (ok) toast(ok + ' vidéo(s) importée(s), disponibles hors ligne.');
-  await vOpenShow(show.id);
-  if (!$('#view-vid').hidden) renderVid();
+  if (lastShow && touched.size === 1) await vOpenShow(lastShow.id);
+  if ($('#view-vid').hidden && $('#view-show').hidden) showView('vid'); else if (!$('#view-vid').hidden) renderVid();
 });
 
 /* ----- Lecteur vidéo ----- */
