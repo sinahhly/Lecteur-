@@ -444,14 +444,24 @@ dialog[open]::backdrop{animation:fadeIn .2s ease}
 </style>
 <style>
 /* Plein écran iPhone : le contenu passe sous la barre d'état ; voile sombre pour garder l'heure et la batterie lisibles */
-body::before{content:"";position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);z-index:100;pointer-events:none;
-  background:linear-gradient(to bottom,rgba(0,0,0,.6),rgba(0,0,0,0))}
+body::before{content:"";position:fixed;top:0;left:0;right:0;height:calc(env(safe-area-inset-top,0px) * .8);z-index:100;pointer-events:none;
+  background:linear-gradient(to bottom,rgba(0,0,0,.3),rgba(0,0,0,0))}
 </style>
 <style>
 /* Images empilées : recouvrement d'1 px, supprime la fine ligne entre deux images */
 #pages:not(.mode-h):not(.mode-single):not(.mode-double) .pg + .pg{margin-top:-1px}
 /* Croix pour fermer les fenêtres */
-.xClose{position:sticky;top:6px;display:block;width:34px;height:34px;margin:0 0 -34px auto;padding:0;border:0;border-radius:99px;background:rgba(127,127,127,.2);color:inherit;font-size:16px;line-height:34px;text-align:center;z-index:3}
+.xClose{position:absolute;top:10px;right:10px;width:30px;height:30px;margin:0;padding:0;border:0;border-radius:99px;background:transparent;color:var(--brume);opacity:.7;font-size:15px;line-height:30px;text-align:center;z-index:3;outline:none;-webkit-tap-highlight-color:transparent}
+.xClose:active{background:rgba(127,127,127,.2)}
+dialog h3{padding-right:30px}
+/* Bande du bas du lecteur : noire (comme le lecteur) au lieu de la couleur du thème */
+body.lock,html:has(body.lock){background:#000}
+/* Barre de progression d'import, visible sur toutes les pages */
+#impBar{position:fixed;left:12px;right:12px;top:calc(env(safe-area-inset-top,0px) + 10px);z-index:70;padding:12px 14px;border-radius:14px;background:var(--carte);color:var(--papier);border:1.5px solid var(--trait);box-shadow:0 8px 24px rgba(0,0,0,.18)}
+#impBar[hidden]{display:none}
+#impBar .impT{font-size:14px;font-weight:700;margin-bottom:8px}
+#impBar .impP{height:6px;border-radius:99px;background:var(--trait);overflow:hidden}
+#impBar .impP i{display:block;height:100%;width:0;background:var(--encre);border-radius:99px;transition:width .2s}
 /* Plein écran de l'app installée : le lecteur couvre tout l'écran, y compris sous la barre du bas */
 html.sa #pages.mode-h,html.sa #pages.mode-single,html.sa #pages.mode-double{height:var(--fullh)}
 html.sa #pages.mode-h .pg,html.sa #pages.mode-single .pg,html.sa #pages.mode-double .pg{height:var(--fullh)}
@@ -749,6 +759,27 @@ html.sa #pages.mode-h .chDivider,html.sa #pages.mode-single .chDivider,html.sa #
   </form>
 </dialog>
 
+<dialog id="dlgImp" class="sheet">
+  <form id="impForm" novalidate autocomplete="off">
+    <h3>Importer un PDF</h3>
+    <p class="hint" id="impFiles"></p>
+    <label for="impTitle">Nom du manga, manhwa ou webtoon</label>
+    <input id="impTitle" type="text" autocapitalize="words" placeholder="Ex. Solo Leveling">
+    <label for="impChap">Chapitre ou tome</label>
+    <input id="impChap" type="text" placeholder="Ex. Chapitre 7, Tome 2">
+    <label for="impLang">Langue du chapitre</label>
+    <select id="impLang">
+      <option value="fr">Français</option><option value="en">English</option><option value="es">Español</option>
+      <option value="pt">Português</option><option value="it">Italiano</option><option value="de">Deutsch</option>
+    </select>
+    <div class="crow"><span>Webtoon : recoller les pages en une bande continue (retire marges et pied de page)</span><input type="checkbox" id="impWebtoon"></div>
+    <div class="row">
+      <button type="button" class="ghost" id="impCancel">Annuler</button>
+      <button class="primary" type="submit" id="impOk">Importer</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="dlgAdd" class="sheet">
   <form id="addForm" novalidate autocomplete="off">
     <h3>Ajouter une source</h3>
@@ -891,8 +922,14 @@ const idb = (() => {
     putManga: m => { m._upd = Date.now(); return run('mangas', 'readwrite', s => s.put(m)); },
     putMangaRaw: m => run('mangas', 'readwrite', s => s.put(m)),
     delManga: id => run('mangas', 'readwrite', s => s.delete(id)),
-    blob: k => run('blobs', 'readonly', s => s.get(k)),
-    putBlob: (k, b) => run('blobs', 'readwrite', s => s.put(b, k)),
+    blob: async k => { const v = await run('blobs', 'readonly', s => s.get(k)); return (v && v.__ab) ? new Blob([v.__ab], { type: v.type || 'image/jpeg' }) : v; },
+    putBlob: async (k, b) => {
+      try { return await run('blobs', 'readwrite', s => s.put(b, k)); }
+      catch (e) {
+        if (b instanceof Blob) { const ab = await b.arrayBuffer(); return run('blobs', 'readwrite', s => s.put({ __ab: ab, type: b.type }, k)); }
+        throw e;
+      }
+    },
     delBlob: k => run('blobs', 'readwrite', s => s.delete(k)),
     async delChapter(c) {
       for (let i = 0; i < c.pages.length; i++) await run('blobs', 'readwrite', s => s.delete(c.id + ':' + i));
@@ -1362,7 +1399,22 @@ async function fetchCoverFromAniList(title) {
     };
   } catch { return null; }
 }
-async function attachCoverIfMissing(manga) {
+async function translateDesc(text, to) {
+  const parts = text.match(/[^.!?…]+[.!?…]*\s*/g) || [text];
+  const chunks = []; let cur = '';
+  for (const p of parts) { if ((cur + p).length > 420 && cur) { chunks.push(cur.trim()); cur = p; } else cur += p; }
+  if (cur.trim()) chunks.push(cur.trim());
+  const dec = document.createElement('textarea'), out = [];
+  for (const c of chunks.slice(0, 4)) {
+    const r = await fetch('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(c.slice(0, 450)) + '&langpair=en%7C' + to);
+    if (!r.ok) throw new Error('traduction');
+    const j = await r.json();
+    if (String(j.responseStatus) !== '200' || !j.responseData || !j.responseData.translatedText) throw new Error('traduction');
+    dec.innerHTML = j.responseData.translatedText; out.push(dec.value);
+  }
+  return out.join(' ');
+}
+async function attachCoverIfMissing(manga, lang) {
   if (!manga || manga.coverType) return;
   const info = await fetchCoverFromAniList(manga.title);
   if (!info) return;
@@ -1370,7 +1422,13 @@ async function attachCoverIfMissing(manga) {
     try { await idb.putBlob('cover:' + manga.id, await fetchBlob(info.cover)); manga.coverType = 'blob'; }
     catch { manga.coverType = 'url'; manga.coverUrl = info.cover; }
   }
-  if (info.description && !manga.description) manga.description = info.description.slice(0, 600);
+  if (info.description && !manga.description) {
+    let d = info.description.slice(0, 600);
+    const k = Math.max(d.lastIndexOf('. '), d.lastIndexOf('! '), d.lastIndexOf('? '));
+    if (k > 200) d = d.slice(0, k + 1);
+    if (lang && lang !== 'en') { try { d = await translateDesc(d, lang); } catch {} }
+    manga.description = d;
+  }
   if (manga.coverType || manga.description) await idb.putManga(manga);
 }
 
@@ -3122,6 +3180,56 @@ async function pdfToWebtoonBlobs(files, onProgress) {
   await flush();
   return out;
 }
+
+/* Barre de progression d'import (visible sur toutes les pages) */
+const imp = (() => {
+  let el;
+  const ensure = () => {
+    if (el) return el;
+    el = document.createElement('div'); el.id = 'impBar'; el.hidden = true;
+    el.innerHTML = '<div class="impT"></div><div class="impP"><i></i></div>';
+    document.body.appendChild(el); return el;
+  };
+  return {
+    show(text, ratio) {
+      const e = ensure(); e.hidden = false;
+      e.querySelector('.impT').textContent = text;
+      e.querySelector('.impP i').style.width = Math.round(Math.max(0, Math.min(1, ratio || 0)) * 100) + '%';
+    },
+    hide() { if (el) el.hidden = true; }
+  };
+})();
+function askImport(def) {
+  return new Promise(res => {
+    const d = $('#dlgImp'); let done = false;
+    $('#impFiles').textContent = def.filesLabel;
+    $('#impTitle').value = def.title; $('#impChap').value = def.chapter;
+    $('#impLang').value = def.lang; $('#impWebtoon').checked = def.webtoon;
+    const onClose = () => { if (!done) { done = true; res(null); } };
+    const finish = v => { if (done) return; done = true; d.removeEventListener('close', onClose); d.close(); res(v); };
+    $('#impCancel').onclick = () => finish(null);
+    $('#impForm').onsubmit = e => {
+      e.preventDefault();
+      finish({ title: $('#impTitle').value.trim(), chapter: $('#impChap').value.trim(), lang: $('#impLang').value, webtoon: $('#impWebtoon').checked });
+    };
+    d.addEventListener('close', onClose);
+    d.showModal();
+  });
+}
+/* Devine la langue d'après le nom du fichier et l'adresse imprimée sur la 1re page (modifiable ensuite) */
+async function guessPdfLang(file, baseName) {
+  const pick = t => /(?:^|[\s_\-\/.])(fr|vf|vostfr|francais|français|chapitre)(?:$|[\s_\-\/.])/i.test(t) ? 'fr'
+    : /(?:^|[\s_\-\/.])(en|english|chapter)(?:$|[\s_\-\/.])/i.test(t) ? 'en' : null;
+  let g = pick(baseName);
+  if (g) return g;
+  try {
+    await ensurePdfJs();
+    const doc = await window.pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+    const tc = await (await doc.getPage(1)).getTextContent();
+    g = pick(tc.items.map(i => i.str).join(' '));
+  } catch {}
+  return g || cfg.target || 'fr';
+}
 $('#pickPdf').onclick = () => { dlgAdd.close(); $('#pdfFile').click(); };
 $('#pdfFile').addEventListener('change', async e => {
   const files = Array.from(e.target.files || []).sort((x, y) => x.name.localeCompare(y.name, undefined, { numeric: true })); e.target.value = '';
@@ -3131,22 +3239,30 @@ $('#pdfFile').addEventListener('change', async e => {
   // (ex. « One Piece - Chapitre 12.pdf », « Solo Leveling_Tome 3.pdf ») pour pré-remplir les champs.
   const baseName = file.name.replace(/\.pdf$/i, '').replace(/[_.]+/g, ' ').replace(/\s+/g, ' ').trim();
   const guess = splitTitle(baseName);
-  const mangaTitleRaw = prompt('Nom du manga, manhwa ou webtoon', guess.mangaTitle || '');
-  if (mangaTitleRaw === null) return;
-  const mangaTitle = mangaTitleRaw.trim() || 'Sans titre';
-  const suggestion = guess.chapterLabel || await suggestNextChapterLabel(mangaTitle, '');
-  const chapterLabelRaw = prompt('Numéro du chapitre ou du tome (ex. « Chapitre 7 », « Tome 2 »)', suggestion);
-  if (chapterLabelRaw === null) return;
-  const info = labelToChapterInfo(chapterLabelRaw, guess.chapterLabel || baseName);
-  const webtoon = confirm('Ce PDF est un webtoon ?\n\nOK : marges et pied de page retirés, pages recollées en une seule bande continue.\nAnnuler : pages telles quelles.');
-  say('Lecture du PDF…');
+  const lang0 = await Promise.race([guessPdfLang(file, baseName), new Promise(r => setTimeout(() => r(null), 2500))]) || cfg.target || 'fr';
+  const ans = await askImport({
+    filesLabel: files.length > 1 ? files.length + ' PDF seront réunis en un seul chapitre, dans l\'ordre de leurs noms.' : file.name,
+    title: guess.mangaTitle || '',
+    chapter: guess.chapterLabel || await suggestNextChapterLabel(guess.mangaTitle || '', ''),
+    lang: lang0,
+    webtoon: store.get('impWebtoon', '0') === '1'
+  });
+  if (!ans) return;
+  store.set('impWebtoon', ans.webtoon ? '1' : '0');
+  const mangaTitle = ans.title || 'Sans titre';
+  const info = labelToChapterInfo(ans.chapter, guess.chapterLabel || baseName);
+  const webtoon = ans.webtoon, lang = ans.lang;
+  const prog = (txt, r) => { say(txt); imp.show(txt, r); };
+  prog('Préparation du PDF…', 0);
   try {
     let blobs = [];
     if (webtoon) {
-      blobs = await pdfToWebtoonBlobs(files, (k, nf, i, n) => say('Mode webtoon' + (nf > 1 ? ' ' + (k + 1) + '/' + nf : '') + '… page ' + i + '/' + n));
+      blobs = await pdfToWebtoonBlobs(files, (k, nf, i, n) =>
+        prog('Lecture du PDF (webtoon)… page ' + i + '/' + n + (nf > 1 ? ' · fichier ' + (k + 1) + '/' + nf : ''), 0.9 * (k + i / n) / nf));
     } else {
       for (let k = 0; k < files.length; k++) {
-        const part = await pdfToImageBlobs(files[k], (i, n) => say('Lecture du PDF' + (files.length > 1 ? ' ' + (k + 1) + '/' + files.length : '') + '… page ' + i + '/' + n));
+        const part = await pdfToImageBlobs(files[k], (i, n) =>
+          prog('Lecture du PDF… page ' + i + '/' + n + (files.length > 1 ? ' · fichier ' + (k + 1) + '/' + files.length : ''), 0.9 * (k + i / n) / files.length));
         part.forEach(b => blobs.push(b));
       }
     }
@@ -3154,12 +3270,16 @@ $('#pdfFile').addEventListener('change', async e => {
     const manga = await resolveManga(mangaTitle, '', null, null);
     const ch = { id: newId(), mangaId: manga.id, title: info.title || 'Chapitre PDF', num: info.num,
       source: 'pdf:' + Date.now(), added: Date.now(), read: false, pages: blobs.map(() => ({ url: null, saved: true })) };
-    say('Enregistrement des pages…');
-    try { for (let i = 0; i < blobs.length; i++) await idb.putBlob(ch.id + ':' + i, blobs[i]); }
-    catch (e) { for (let j = 0; j < blobs.length; j++) await idb.delBlob(ch.id + ':' + j).catch(() => {}); throw e; }
-    await idb.putChapter(ch); await attachCoverIfMissing(manga); say('');
-    // Confirmation explicite : signe visible que l'import a réussi et que le chapitre est bien
-    // dans la bibliothèque, même si on enchaîne directement sur l'ouverture du lecteur.
+    prog('Enregistrement des pages…', 0.9);
+    try {
+      for (let i = 0; i < blobs.length; i++) {
+        await idb.putBlob(ch.id + ':' + i, blobs[i]);
+        imp.show('Enregistrement… ' + (i + 1) + '/' + blobs.length, 0.9 + 0.1 * (i + 1) / blobs.length);
+      }
+    } catch (e) { for (let j = 0; j < blobs.length; j++) await idb.delBlob(ch.id + ':' + j).catch(() => {}); throw e; }
+    await idb.putChapter(ch);
+    imp.show('Recherche de la couverture et de la description…', 1);
+    await attachCoverIfMissing(manga, lang); say('');
     toast('« ' + manga.title + ' » — ' + ch.title + ' importé et ajouté à la bibliothèque.');
     curMangaId = manga.id; openChapter(ch);
   } catch (err) {
@@ -3168,7 +3288,7 @@ $('#pdfFile').addEventListener('change', async e => {
     say(/stockage|quota/i.test(m + ' ' + ((err && err.name) || ''))
       ? 'Espace de stockage insuffisant sur l\'iPhone : libère de la place (Réglages > Général > Stockage de l\'iPhone), puis réessaie. Rien n\'a été gardé de cet import.'
       : 'Impossible de lire ce PDF. (' + (m || err || 'erreur inconnue') + ')', true);
-  }
+  } finally { imp.hide(); }
 });
 
 /* ---------- Export d'un ou plusieurs chapitres en PDF ---------- */
