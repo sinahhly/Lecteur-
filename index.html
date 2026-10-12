@@ -458,9 +458,16 @@ dialog h3{padding-right:30px}
 /* Bande du bas du lecteur : noire (comme le lecteur) au lieu de la couleur du thème */
 body.lock,html:has(body.lock){background:#000}
 .primary.danger{background:#d9534f;color:#fff}
+/* Barre de lecture : progression + chapitre précédent / suivant */
+.rbar{position:fixed;left:0;right:0;bottom:0;z-index:5;display:flex;align-items:center;gap:8px;padding:8px 12px calc(env(safe-area-inset-bottom,0px) + 8px);background:var(--barre);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);transition:transform .2s,opacity .2s}
+.rbar.hide{transform:translateY(100%);opacity:0;pointer-events:none}
+.rbar button{width:42px;height:42px;padding:0;border:0;border-radius:99px;background:transparent;color:var(--papier);font-size:30px;line-height:1}
+.rbar button:disabled{opacity:.28}
+.rbar input[type=range]{flex:1;min-width:0;accent-color:var(--encre)}
+.count{bottom:calc(env(safe-area-inset-bottom,0px) + 66px)}
 /* Traduction : zones à toucher et encadré */
-.ov .hot{position:absolute;pointer-events:auto;border-radius:8px;background:rgba(91,87,224,.10);box-shadow:0 0 0 2px rgba(91,87,224,.5)}
-.ov .hot.on{background:rgba(91,87,224,.22);box-shadow:0 0 0 2px rgba(91,87,224,.9)}
+.ov .hot{position:absolute;pointer-events:auto;border-radius:8px;background:rgba(91,87,224,.05);box-shadow:0 0 0 1.5px rgba(91,87,224,.4)}
+.ov .hot.on{background:rgba(91,87,224,.16);box-shadow:0 0 0 2px rgba(91,87,224,.85)}
 .trPop{position:absolute;left:50%;transform:translateX(-50%);width:min(88%,340px);box-sizing:border-box;padding:12px 14px;border-radius:14px;background:var(--carte);color:var(--papier);border:1.5px solid var(--trait);box-shadow:0 10px 28px rgba(0,0,0,.35);pointer-events:auto;z-index:4;text-align:left;line-height:1.35}
 .trPop b{display:block;font-size:16px;font-weight:700}
 .trPop small{display:block;margin-top:6px;font-size:12px;color:var(--brume);font-weight:500}
@@ -671,6 +678,11 @@ html.sa #pages.mode-h .chDivider,html.sa #pages.mode-single .chDivider,html.sa #
   <div id="dim"></div>
   <div id="pages"></div>
   <div id="count" class="count"></div>
+  <div class="rbar" id="rbar">
+    <button type="button" id="rPrev" aria-label="Chapitre précédent">&#8249;</button>
+    <input type="range" id="rProg" min="0" max="1000" value="0" aria-label="Progression de la lecture">
+    <button type="button" id="rNext" aria-label="Chapitre suivant">&#8250;</button>
+  </div>
 </div>
 
 <dialog id="dlgMode" class="sheet">
@@ -2876,7 +2888,7 @@ async function openChapter(ch, startIdx) {
     document.body.classList.add('lock');
     $('#rTitle').textContent = ch.title;
     $('#pages').innerHTML = '<p style="padding:60px 20px;text-align:center;color:#a5a2c8">Recherche des pages…</p>';
-    $('#bar').classList.remove('hide');
+    $('#bar').classList.remove('hide'); $('#rbar').classList.remove('hide');
     try {
       const html = await fetchText(ch.source);
       const { urls } = extract(html, ch.source);
@@ -2909,7 +2921,7 @@ async function openChapter(ch, startIdx) {
   document.body.classList.add('lock');
   $('#reader').scrollTop = 0; box.scrollLeft = 0;
   $('#bar').classList.remove('hide');
-  $('#count').classList.remove('hide');
+  $('#count').classList.remove('hide'); $('#rbar').classList.remove('hide');
   exitFullscreen();
   updateSaveBtn();
   $('#reader').classList.remove('ui-off');
@@ -3056,7 +3068,29 @@ function openBookmarks() {
   dlgBm.showModal();
 }
 
-let ticking = false;
+let ticking = false, rSeeking = false;
+function prevChapterOf(ch) {
+  if (!curMangaId || !curChs.length) return null;
+  const i = curChs.findIndex(c => c.id === ch.id);
+  return i > 0 ? curChs[i - 1] : null;
+}
+$('#rProg').addEventListener('input', e => {
+  if (!cur) return;
+  rSeeking = true;
+  const frac = (+e.target.value) / 1000, vertical = computeMode() === 'vertical';
+  const figs = document.querySelectorAll('.pg[data-ch="' + CSS.escape(String(cur.id)) + '"]');
+  if (!figs.length) return;
+  if (vertical) {
+    const a = figs[0].getBoundingClientRect(), b = figs[figs.length - 1].getBoundingClientRect(), total = b.bottom - a.top - innerHeight;
+    $('#reader').scrollTop += frac * total + a.top;
+  } else gotoPage(Math.round(frac * (figs.length - 1)));
+});
+const endSeek = () => { rSeeking = false; };
+$('#rProg').addEventListener('change', endSeek);
+$('#rProg').addEventListener('pointerup', endSeek);
+$('#rProg').addEventListener('touchend', endSeek);
+$('#rPrev').onclick = () => { const c = cur && prevChapterOf(cur); if (c) openChapter(c); };
+$('#rNext').onclick = () => { const c = cur && nextChapterOf(cur); if (c) openChapter(c); };
 function onScroll() {
   if (!cur) return;
   const vertical = computeMode() === 'vertical', rtl = !vertical && $('#pages').classList.contains('rtl');
@@ -3069,6 +3103,16 @@ function onScroll() {
     if (pos < size * 0.5) idx = i; else break;
   }
   $('#count').textContent = figs.length ? (idx + 1) + ' / ' + figs.length : '';
+  if (figs.length) {
+    let frac = 0;
+    if (vertical) {
+      const a = figs[0].getBoundingClientRect(), b = figs[figs.length - 1].getBoundingClientRect(), total = b.bottom - a.top - innerHeight;
+      frac = total > 0 ? Math.max(0, Math.min(1, -a.top / total)) : 0;
+    } else frac = figs.length > 1 ? idx / (figs.length - 1) : 0;
+    const rp2 = $('#rProg'); rp2.style.direction = rtl ? 'rtl' : 'ltr';
+    if (!rSeeking) rp2.value = Math.round(frac * 1000);
+  }
+  $('#rPrev').disabled = !prevChapterOf(cur); $('#rNext').disabled = !nextChapterOf(cur);
   const pk = cur.id + ':' + idx;
   if (pk !== lastProgKey) { lastProgKey = pk; curIdx = idx; store.set('prog:' + cur.id, idx); paintBm(); }
   if (figs.length && idx >= figs.length - 1 && !cur.read) {
@@ -3088,6 +3132,7 @@ $('#pages').addEventListener('click', () => {
   $('#bar').classList.toggle('hide');
   $('#reader').classList.toggle('ui-off', hiding);
   $('#count').classList.toggle('hide');
+  $('#rbar').classList.toggle('hide', hiding);
   if (hiding) enterFullscreen(); else exitFullscreen();
 });
 $('#back').onclick = closeReader;
@@ -4253,7 +4298,12 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   var isApp = navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
   var setForm = document.querySelector('#dlgSet form');
   var sbar = ''; try { sbar = localStorage.getItem('sbar') || 'black'; } catch (e) { sbar = 'black'; }
-  var info = ' (écran ' + Math.max(screen.width, screen.height) + ', page ' + window.innerHeight + ')';
+  var probe = document.createElement('div');
+  probe.style.cssText = 'position:fixed;left:0;top:0;visibility:hidden;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)';
+  document.body.appendChild(probe);
+  var cs = getComputedStyle(probe), insT = Math.round(parseFloat(cs.paddingTop) || 0), insB = Math.round(parseFloat(cs.paddingBottom) || 0);
+  document.body.removeChild(probe);
+  var info = ' (écran ' + Math.max(screen.width, screen.height) + ', page ' + window.innerHeight + ', marge haut ' + insT + ', bas ' + insB + ')';
   if (setForm) setForm.insertAdjacentHTML('afterbegin', '<p class="hint">Affichage actuel : ' + (isApp ? 'app installée, barre d\'état ' + (sbar === 'translucent' ? 'transparente' : 'noire') + '.' : 'dans Safari (la barre du bas ne peut pas être retirée ; ouvre l\'app depuis son icône).') + info + '</p>');
   if (isApp && sbar === 'translucent') {
     document.documentElement.classList.add('sa');
@@ -4262,7 +4312,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
       var land = window.innerWidth > window.innerHeight;
       var h = land ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height);
       document.documentElement.style.setProperty('--fullh', h + 'px');
-      els.forEach(function (el) { el.style.bottom = 'auto'; el.style.height = h + 'px'; });
+      els.forEach(function (el) { el.style.position = 'absolute'; el.style.top = '0'; el.style.left = '0'; el.style.right = '0'; el.style.bottom = 'auto'; el.style.height = h + 'px'; });
     };
     fit();
     window.addEventListener('resize', fit);
