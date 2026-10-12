@@ -648,12 +648,16 @@ html.sa #pages.mode-h .chDivider,html.sa #pages.mode-single .chDivider,html.sa #
 
 <dialog id="dlgMode" class="sheet">
   <h3>Lecture</h3>
-  <div class="sheetList" id="modeList">
-    <button type="button" data-mode="auto">Automatique <span class="m">selon l'orientation : page seule en portrait, double page en paysage</span></button>
-    <button type="button" data-mode="vertical">Défilement vertical <span class="m">webtoon, en continu</span></button>
-    <button type="button" data-mode="horizontal">Défilement horizontal <span class="m">en continu</span></button>
-    <button type="button" data-mode="single">Page seule <span class="m">une image à la fois</span></button>
-    <button type="button" data-mode="double">Double page <span class="m">deux images côte à côte</span></button>
+  <div class="sheetList" id="scrollList">
+    <button type="button" data-scroll="vertical">Défilement vertical <span class="m">webtoon, en continu</span></button>
+    <button type="button" data-scroll="horizontal">Défilement horizontal <span class="m">en continu</span></button>
+    <button type="button" data-scroll="paged">Par pages <span class="m">une page ou deux à la fois, comme un livre</span></button>
+  </div>
+  <p class="hint" style="margin:14px 0 2px">Mise en page (pour « Par pages »)</p>
+  <div class="sheetList" id="layoutList">
+    <button type="button" data-layout="auto">Automatique <span class="m">page seule en portrait, double page en paysage</span></button>
+    <button type="button" data-layout="single">Page seule <span class="m">une image à la fois</span></button>
+    <button type="button" data-layout="double">Double page <span class="m">deux images côte à côte</span></button>
   </div>
   <div class="hr"></div>
   <div class="rset">
@@ -662,7 +666,7 @@ html.sa #pages.mode-h .chDivider,html.sa #pages.mode-single .chDivider,html.sa #
     <label for="rsZoom">Zoom (défilement vertical) <b id="rsZoomV"></b></label>
     <input id="rsZoom" type="range" min="60" max="300" step="10">
     <div class="crow"><span>Sens de lecture droite → gauche (manga)</span><input type="checkbox" id="rsRtl"></div>
-    <p>Le sens et le zoom s'appliquent aux modes de page ; en mode page ou double page, pince l'écran pour zoomer.</p>
+    <p>Le sens s'applique aux modes horizontal et par pages. Ces réglages sont mémorisés pour chaque série ; en mode page ou double page, pince l'écran pour zoomer.</p>
     <div class="hr"></div>
     <button type="button" id="rsTr" class="primary" style="width:100%;height:46px">Traduire cette page</button>
     <p>Détecte le texte des bulles de la page affichée et le traduit. Les langues se règlent dans les réglages de la bibliothèque.</p>
@@ -783,7 +787,14 @@ html.sa #pages.mode-h .chDivider,html.sa #pages.mode-single .chDivider,html.sa #
       <option value="fr">Français</option><option value="en">English</option><option value="es">Español</option>
       <option value="pt">Português</option><option value="it">Italiano</option><option value="de">Deutsch</option>
     </select>
-    <div class="crow" id="impWebRow"><span>Webtoon : recoller les pages en une bande continue (retire marges et pied de page)</span><input type="checkbox" id="impWebtoon"></div>
+    <div id="impWebRow">
+      <label for="impType">Type de PDF</label>
+      <select id="impType">
+        <option value="pages">Pages telles quelles</option>
+        <option value="webtoon">Webtoon : bande continue, sans marges</option>
+        <option value="manga">Manga : pages redécoupées, lecture droite → gauche</option>
+      </select>
+    </div>
     <div class="row">
       <button type="button" class="ghost" id="impCancel">Annuler</button>
       <button class="primary" type="submit" id="impOk">Importer</button>
@@ -2631,10 +2642,34 @@ async function buildPage(p, i, chId) {
 }
 
 /* ---------- Mode de lecture ---------- */
+/* Préférences de lecture : propres à chaque série (sinon, valeurs générales) */
+let rp = null, rpManga = null;
+async function loadReadPrefs(mangaId) {
+  rp = null; rpManga = null;
+  try {
+    const m = (await idb.listMangas()).find(x => x.id === mangaId);
+    if (m) { rpManga = m; rp = m.readPrefs ? Object.assign({}, m.readPrefs) : null; }
+  } catch {}
+}
+function readerPrefs() {
+  let mode = (rp && rp.mode) || store.get('readerMode', 'vertical');
+  let layout = (rp && rp.layout) || store.get('readerLayout', 'auto');
+  if (mode === 'auto' || mode === 'single' || mode === 'double') { layout = mode; mode = 'paged'; }   // anciens réglages
+  const rtl = rp && rp.rtl !== undefined ? !!rp.rtl : store.get('rsRtl', '0') === '1';
+  return { mode, layout, rtl };
+}
+async function setReadPref(key, val) {
+  if (rpManga) {
+    rp = Object.assign(rp || {}, { [key]: val });
+    rpManga.readPrefs = Object.assign({}, rp);
+    try { await idb.putManga(rpManga); } catch {}
+  } else store.set(key === 'mode' ? 'readerMode' : key === 'layout' ? 'readerLayout' : 'rsRtl', key === 'rtl' ? (val ? '1' : '0') : val);
+}
 function computeMode() {
-  const m = store.get('readerMode', 'vertical');
-  if (m !== 'auto') return m;
-  return matchMedia('(orientation: landscape)').matches ? 'double' : 'single';
+  const { mode, layout } = readerPrefs();
+  if (mode !== 'paged') return mode;
+  if (layout === 'auto') return matchMedia('(orientation: landscape)').matches ? 'double' : 'single';
+  return layout;
 }
 function applyReaderMode() {
   const mode = computeMode();
@@ -2643,16 +2678,16 @@ function applyReaderMode() {
   if (mode === 'horizontal') box.classList.add('mode-h');
   else if (mode === 'single') box.classList.add('mode-single');
   else if (mode === 'double') box.classList.add('mode-double');
-  box.classList.toggle('rtl', mode !== 'vertical' && store.get('rsRtl', '0') === '1');
+  box.classList.toggle('rtl', mode !== 'vertical' && readerPrefs().rtl);
   box.style.setProperty('--z', mode === 'vertical' ? String(+store.get('rsZoom', '100') / 100) : '1');
   $('#dim').style.opacity = String(Math.min(.8, Math.max(0, 1 - +store.get('rsBright', '100') / 100)));
   return mode;
 }
 function paintModeList() {
-  const stored = store.get('readerMode', 'vertical');
-  document.querySelectorAll('#modeList button').forEach(b => {
-    b.setAttribute('aria-checked', b.dataset.mode === stored ? 'true' : 'false');
-  });
+  const { mode, layout } = readerPrefs();
+  document.querySelectorAll('#scrollList button').forEach(b => b.setAttribute('aria-checked', b.dataset.scroll === mode ? 'true' : 'false'));
+  document.querySelectorAll('#layoutList button').forEach(b => b.setAttribute('aria-checked', b.dataset.layout === layout ? 'true' : 'false'));
+  $('#layoutList').style.opacity = mode === 'paged' ? '1' : '.5';
 }
 $('#mode').onclick = () => { paintModeList(); paintReadPrefs(); paintTrBtn(); $('#dlgMode').showModal(); };
 function trFigs() {
@@ -2672,10 +2707,14 @@ function paintTrBtn() {
 $('#rsTr').onclick = () => trFigs().forEach(f => { const t = f.querySelector('.tr'); if (t && !t.disabled) t.click(); });
 $('#dlgMode').addEventListener('close', () => { if (trObs) { trObs.disconnect(); trObs = null; } });
 $('#dlgMode').addEventListener('click', e => { if (e.target === $('#dlgMode')) $('#dlgMode').close(); });
-document.querySelectorAll('#modeList button').forEach(b => b.onclick = () => {
-  store.set('readerMode', b.dataset.mode);
-  $('#dlgMode').close();
-  if (cur) { const i = curIdx; applyReaderMode(); setupEndObserver(); gotoPage(i); onScroll(); }
+const reapplyReader = () => { if (cur) { const i = curIdx; applyReaderMode(); setupEndObserver(); gotoPage(i); onScroll(); } };
+document.querySelectorAll('#scrollList button').forEach(b => b.onclick = async () => {
+  await setReadPref('mode', b.dataset.scroll); paintModeList(); reapplyReader();
+  if (b.dataset.scroll !== 'paged') $('#dlgMode').close();
+});
+document.querySelectorAll('#layoutList button').forEach(b => b.onclick = async () => {
+  await setReadPref('layout', b.dataset.layout); await setReadPref('mode', 'paged');
+  paintModeList(); reapplyReader(); $('#dlgMode').close();
 });
 function gotoPage(i) {
   const f = cur && document.querySelector('.pg[data-ch="' + CSS.escape(String(cur.id)) + '"][data-idx="' + i + '"]');
@@ -2685,15 +2724,15 @@ function paintReadPrefs() {
   const b = +store.get('rsBright', '100'), z = +store.get('rsZoom', '100');
   $('#rsBright').value = b; $('#rsBrightV').textContent = b + ' %';
   $('#rsZoom').value = z; $('#rsZoomV').textContent = z + ' %';
-  $('#rsRtl').checked = store.get('rsRtl', '0') === '1';
+  $('#rsRtl').checked = readerPrefs().rtl;
 }
 $('#rsBright').oninput = e => { store.set('rsBright', e.target.value); $('#rsBrightV').textContent = e.target.value + ' %'; if (cur) applyReaderMode(); };
 $('#rsZoom').oninput = e => {
   store.set('rsZoom', e.target.value); $('#rsZoomV').textContent = e.target.value + ' %';
   if (cur) { const i = curIdx; applyReaderMode(); requestAnimationFrame(() => gotoPage(i)); }
 };
-$('#rsRtl').onchange = e => {
-  store.set('rsRtl', e.target.checked ? '1' : '0');
+$('#rsRtl').onchange = async e => {
+  await setReadPref('rtl', e.target.checked);
   if (cur) { const i = curIdx; applyReaderMode(); setupEndObserver(); requestAnimationFrame(() => { gotoPage(i); onScroll(); }); }
 };
 addEventListener('keydown', e => {
@@ -2754,6 +2793,7 @@ async function openChapter(ch, startIdx) {
       return;
     }
   }
+  await loadReadPrefs(ch.mangaId);
   cur = ch;
   const box = $('#pages'); box.innerHTML = '';
   $('#rTitle').textContent = ch.title;
@@ -3235,10 +3275,58 @@ async function pdfToImageBlobs(file, onProgress) {
 }
 
 /* Mode webtoon : retire marges et pied de page de chaque page du PDF, puis recolle tout en longues bandes */
-async function pdfToWebtoonBlobs(files, onProgress) {
+async function pdfToWebtoonBlobs(files, onProgress, opts) {
   await ensurePdfJs();
   const CH = 6000, out = [];
   let X0 = -1, W = 0, strip = null, sy = 0;
+  /* Mode manga : on remplit un tampon, puis on le redécoupe en pages de proportion manga,
+     en coupant dans la bande blanche la plus épaisse près de la hauteur attendue */
+  const pag = !!(opts && opts.paginate);
+  let H0 = 0, WIN = 0, buf = null, bh = 0;
+  const findCut = () => {
+    const a = Math.max(8, H0 - WIN), b = Math.min(bh - 4, H0 + WIN), h = b - a;
+    const d = buf.getContext('2d', { willReadFrequently: true }).getImageData(0, a, W, h).data;
+    const blank = new Uint8Array(h), ink = new Uint16Array(h);
+    for (let y = 0; y < h; y++) {
+      let n = 0; const base = y * W * 4;
+      for (let x = 0; x < W; x += 3) { const i = base + x * 4; if (d[i] < 235 || d[i + 1] < 235 || d[i + 2] < 235) n++; }
+      ink[y] = n; blank[y] = n === 0 ? 1 : 0;
+    }
+    let best = -1e9, cut = H0;
+    for (let y = 0; y < h;) {
+      if (!blank[y]) { y++; continue; }
+      let z = y; while (z < h && blank[z]) z++;
+      const len = z - y, mid = a + ((y + z) >> 1);
+      if (len >= 4) { const sc = len * 2 - Math.abs(mid - H0) / 10; if (sc > best) { best = sc; cut = mid; } }
+      y = z;
+    }
+    if (best === -1e9) { let m = 1e9; for (let y = 0; y < h; y++) { const sc = ink[y] + Math.abs(a + y - H0) / 20; if (sc < m) { m = sc; cut = a + y; } } }
+    return cut;
+  };
+  const emit = async h => {
+    const c = document.createElement('canvas'); c.width = W; c.height = h;
+    c.getContext('2d').drawImage(buf, 0, 0, W, h, 0, 0, W, h);
+    const blob = await new Promise(res => c.toBlob(res, 'image/jpeg', 0.85)); c.width = 0; c.height = 0;
+    if (blob) out.push(blob);
+    const rest = bh - h;
+    if (rest > 0) {
+      const t = document.createElement('canvas'); t.width = W; t.height = rest;
+      t.getContext('2d').drawImage(buf, 0, h, W, rest, 0, 0, W, rest);
+      const bx = buf.getContext('2d'); bx.clearRect(0, 0, W, buf.height); bx.drawImage(t, 0, 0); t.width = 0; t.height = 0;
+    }
+    bh = Math.max(0, rest);
+  };
+  const pagAdd = async (cv, x0, y0, h) => {
+    if (!buf) { H0 = Math.round(W * 1.45); WIN = Math.round(H0 * 0.22); buf = document.createElement('canvas'); buf.width = W; buf.height = H0 * 3 + 400; }
+    let srcY = y0, remain = h;
+    while (remain > 0) {
+      const take = Math.min(buf.height - bh, remain);
+      if (take <= 0) break;
+      buf.getContext('2d').drawImage(cv, x0, srcY, W, take, 0, bh, W, take);
+      bh += take; srcY += take; remain -= take;
+      while (bh >= H0 + WIN + 8) await emit(findCut());
+    }
+  };
   const toBlob = c => new Promise(res => c.toBlob(res, 'image/jpeg', 0.85));
   const flush = async () => {
     if (!strip || sy <= 0) return;
@@ -3285,7 +3373,8 @@ async function pdfToWebtoonBlobs(files, onProgress) {
           for (const [r0, r1] of spans) for (let y = r0; y <= r1; y++) { const b = y * w * 4; for (let x = 0; x < w; x++) { if (dark(b + x * 4)) { if (x < a) a = x; if (x > z) z = x; } } }
           if (z - a > 10) { X0 = a + 1; W = Math.min(w - a - 1, z - a - 1); }
         }
-        if (X0 >= 0 && bottom > top) {
+        if (X0 >= 0 && bottom > top && pag) await pagAdd(cv, X0, top, bottom - top);
+        else if (X0 >= 0 && bottom > top) {
           let srcY = top, remain = bottom - top;
           while (remain > 0) {
             if (!strip) { strip = document.createElement('canvas'); strip.width = W; strip.height = CH; sy = 0; }
@@ -3301,6 +3390,7 @@ async function pdfToWebtoonBlobs(files, onProgress) {
     }
     try { await doc.destroy(); } catch {}
   }
+  if (pag && buf) { if (bh > 40) await emit(bh); buf.width = 0; buf.height = 0; buf = null; }
   await flush();
   return out;
 }
@@ -3347,13 +3437,13 @@ function askImport(def) {
     $('#impH').textContent = def.heading || 'Importer un PDF'; $('#impWebRow').hidden = !!def.noWebtoon;
     $('#impFiles').textContent = def.filesLabel;
     $('#impTitle').value = def.title; $('#impChap').value = def.chapter;
-    $('#impLang').value = def.lang; $('#impWebtoon').checked = def.webtoon;
+    $('#impLang').value = def.lang; $('#impType').value = def.type || 'pages';
     const onClose = () => { if (!done) { done = true; res(null); } };
     const finish = v => { if (done) return; done = true; d.removeEventListener('close', onClose); d.close(); res(v); };
     $('#impCancel').onclick = () => finish(null);
     $('#impForm').onsubmit = e => {
       e.preventDefault();
-      finish({ title: $('#impTitle').value.trim(), chapter: $('#impChap').value.trim(), lang: $('#impLang').value, webtoon: $('#impWebtoon').checked });
+      finish({ title: $('#impTitle').value.trim(), chapter: $('#impChap').value.trim(), lang: $('#impLang').value, type: $('#impType').value });
     };
     d.addEventListener('close', onClose);
     d.showModal();
@@ -3388,20 +3478,21 @@ $('#pdfFile').addEventListener('change', async e => {
     title: guess.mangaTitle || '',
     chapter: guess.chapterLabel || await suggestNextChapterLabel(guess.mangaTitle || '', ''),
     lang: lang0,
-    webtoon: store.get('impWebtoon', '0') === '1'
+    type: store.get('impType', 'pages')
   });
   if (!ans) return;
-  store.set('impWebtoon', ans.webtoon ? '1' : '0');
+  store.set('impType', ans.type);
   const mangaTitle = ans.title || 'Sans titre';
   const info = labelToChapterInfo(ans.chapter, guess.chapterLabel || baseName);
-  const webtoon = ans.webtoon, lang = ans.lang;
+  const type = ans.type, lang = ans.lang, webtoon = type !== 'pages';
   const prog = (txt, r) => { say(txt); imp.show(txt, r); };
   prog('Préparation du PDF…', 0);
   try {
     let blobs = [];
     if (webtoon) {
       blobs = await pdfToWebtoonBlobs(files, (k, nf, i, n) =>
-        prog('Lecture du PDF (webtoon)… page ' + i + '/' + n + (nf > 1 ? ' · fichier ' + (k + 1) + '/' + nf : ''), 0.9 * (k + i / n) / nf));
+        prog('Lecture du PDF (' + (type === 'manga' ? 'manga' : 'webtoon') + ')… page ' + i + '/' + n + (nf > 1 ? ' · fichier ' + (k + 1) + '/' + nf : ''), 0.9 * (k + i / n) / nf),
+        { paginate: type === 'manga' });
     } else {
       for (let k = 0; k < files.length; k++) {
         const part = await pdfToImageBlobs(files[k], (i, n) =>
@@ -3411,6 +3502,11 @@ $('#pdfFile').addEventListener('change', async e => {
     }
     if (!blobs.length) { say('Ce PDF ne contient aucune page lisible.', true); return; }
     const manga = await resolveManga(mangaTitle, '', null, null);
+    if (!manga.readPrefs && webtoon) {
+      manga.readPrefs = type === 'manga' ? { mode: 'paged', layout: 'auto', rtl: true } : { mode: 'vertical', rtl: false };
+      if (!manga.kind) manga.kind = type === 'manga' ? 'Manga' : 'Webtoon';
+      await idb.putManga(manga);
+    }
     const ch = { id: newId(), mangaId: manga.id, title: info.title || 'Chapitre PDF', num: info.num,
       source: 'pdf:' + Date.now(), added: Date.now(), read: false, pages: blobs.map(() => ({ url: null, saved: true })) };
     prog('Enregistrement des pages…', 0.9);
