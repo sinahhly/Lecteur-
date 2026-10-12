@@ -6,10 +6,10 @@
 <meta name="theme-color" content="#fff6f9">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<title>kumi</title>
+<title>kumimanga</title>
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <script>try{if(localStorage.getItem('sbar')==='translucent'){document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]').setAttribute('content','black-translucent');}}catch(e){}</script>
-<meta name="apple-mobile-web-app-title" content="kumi">
+<meta name="apple-mobile-web-app-title" content="kumimanga">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" type="image/png" href="icon-192.png">
@@ -509,38 +509,6 @@ html.sa #pages.mode-h .pg,html.sa #pages.mode-single .pg,html.sa #pages.mode-dou
 html.sa #pages.mode-single .pg img,html.sa #pages.mode-double .pg img{max-height:var(--fullh)}
 html.sa #pages.mode-h .end,html.sa #pages.mode-single .end,html.sa #pages.mode-double .end,
 html.sa #pages.mode-h .chDivider,html.sa #pages.mode-single .chDivider,html.sa #pages.mode-double .chDivider{height:var(--fullh)}
-
-/* ===== Vidéos ===== */
-#view-vid{padding-bottom:calc(env(safe-area-inset-bottom,0px) + 160px)}
-#vBar{display:flex;align-items:center;gap:8px;padding:0 16px 10px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
-#vBar::-webkit-scrollbar{display:none}
-#vSites{display:flex;align-items:center;gap:8px;padding:0 16px 10px;overflow-x:auto;scrollbar-width:none}
-#vSites::-webkit-scrollbar{display:none}
-#vSites .chip.site{display:inline-flex;align-items:center;gap:6px;color:var(--papier)}
-#vSites .chip.site svg{width:14px;height:14px}
-#vGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px 10px;padding:4px 16px}
-.vBadge{position:absolute;left:6px;top:6px;padding:2px 8px;border-radius:99px;background:rgba(0,0,0,.62);color:#fff;font-size:11px;font-weight:700;z-index:1}
-.vCnt{position:absolute;right:6px;bottom:6px;padding:2px 8px;border-radius:99px;background:var(--encre);color:var(--sur-encre);font-size:11px;font-weight:700;z-index:1}
-#vEmpty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;padding:64px 32px;color:var(--brume)}
-#vEmpty svg{width:64px;height:64px;color:var(--encre-t);margin-bottom:8px}
-#vEmpty .emT{font-size:18px;font-weight:700;color:var(--papier)}
-#vEmpty .primary{margin-top:14px}
-#view-show{position:fixed;inset:0;z-index:8;background:var(--nuit);overflow-y:auto;-webkit-overflow-scrolling:touch}
-#view-show:not([hidden]){animation:fadeIn .22s ease}
-#vaMsg,#shMsg{min-height:0}
-#vaMsg.err{color:var(--alerte)}
-.vaFiles{margin-top:10px}
-#vplayer{position:fixed;inset:0;z-index:20;background:#000;display:flex;flex-direction:column;overscroll-behavior:contain}
-#vplayer[hidden]{display:none}
-.vpBar{display:flex;align-items:center;gap:4px;padding:calc(env(safe-area-inset-top,0px) + 6px) 8px 6px;background:rgba(0,0,0,.85);color:#fff}
-.vpBar .iconbtn{color:#fff;opacity:.9}
-.vpBar .vpTitle{flex:1;min-width:0;font-size:14px;font-weight:700;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.vpBar .vpTxt{padding:6px 10px;border-radius:10px;font-size:13px;font-weight:700;color:#fff;background:rgba(255,255,255,.12);flex-shrink:0}
-.vpBar .vpTxt:active{background:rgba(255,255,255,.25)}
-#vpStage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;background:#000;padding-bottom:env(safe-area-inset-bottom,0px)}
-#vpStage video,#vpStage iframe{width:100%;height:100%;border:0;background:#000;display:block}
-.vpHint{position:absolute;left:16px;right:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);padding:10px 14px;border-radius:12px;background:rgba(0,0,0,.75);color:#fff;font-size:13px;text-align:center}
-.vpHint button{color:#fff;text-decoration:underline;font-weight:700}
 </style>
 </head>
 <body>
@@ -548,7 +516,7 @@ html.sa #pages.mode-h .chDivider,html.sa #pages.mode-single .chDivider,html.sa #
 <!-- Bibliothèque -->
 <main id="view-lib">
   <header class="topbar">
-    <h1>Lecture</h1>
+    <h1>Bibliothèque</h1>
     <button class="iconbtn themeBtn" type="button" aria-label="Changer de thème"><svg class="ico-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><svg class="ico-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
     <button id="libSearchBtn" class="iconbtn" type="button" aria-label="Rechercher">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
@@ -603,138 +571,13 @@ html.sa #pages.mode-h .chDivider,html.sa #pages.mode-single .chDivider,html.sa #
 <nav id="tabbar">
   <button class="tab on" id="tabLib" type="button">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-    Lecture
-  </button>
-  <button class="tab" id="tabVid" type="button">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10.5 9.5 4 2.5-4 2.5z" fill="currentColor"/></svg>
-    Vidéos
+    Bibliothèque
   </button>
   <button class="tab" id="tabBrowse" type="button">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m16.2 7.8-2.2 6.6-6.6 2.2 2.2-6.6z"/></svg>
     Parcourir
   </button>
 </nav>
-
-<!-- Vidéos -->
-<main id="view-vid" hidden>
-  <header class="topbar">
-    <h1>Vidéos</h1>
-    <button class="iconbtn themeBtn" type="button" aria-label="Changer de thème"><svg class="ico-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><svg class="ico-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
-    <button id="vAddBtn" class="iconbtn plus" type="button" aria-label="Ajouter une vidéo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
-    <button id="openSettings3" class="iconbtn" type="button" aria-label="Réglages"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 0 1-4 0v-.09a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.55-1H3a2 2 0 0 1 0-4h.09a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34H9a1.7 1.7 0 0 0 1-1.55V3a2 2 0 0 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87V9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 0 1 0 4h-.09a1.7 1.7 0 0 0-1.55 1z"/></svg></button>
-  </header>
-  <div id="vSites" role="toolbar" aria-label="Sites vidéo" hidden></div>
-  <div id="vBar" role="toolbar" aria-label="Filtres" hidden></div>
-  <div id="vGrid"></div>
-  <div id="vEmpty" hidden>
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10.5 9.5 4 2.5-4 2.5z"/></svg>
-    <p class="emT" id="vEmTitle">Aucune vidéo pour l'instant</p>
-    <p id="vEmSub">Colle le lien d'un épisode (fichier .mp4, flux .m3u8, YouTube, page d'un site…) ou importe une vidéo de ton appareil.</p>
-    <button id="vEmptyAdd" class="primary" type="button">Ajouter une vidéo</button>
-  </div>
-  <button id="vFab" class="fab" type="button" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Ajouter</button>
-</main>
-
-<!-- Fiche série / film -->
-<div id="view-show" hidden>
-  <header class="topbar">
-    <button id="shBack" class="iconbtn" type="button" aria-label="Retour"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg></button>
-    <h1 id="shTop"></h1>
-    <div class="mMenu">
-      <button id="shDlBtn" class="iconbtn" type="button" aria-label="Télécharger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"/><path d="m7.5 11 4.5 4.5 4.5-4.5"/><path d="M5 20h14"/></svg></button>
-      <div class="menuPop" id="shDlPop" hidden>
-        <button type="button" data-n="1">Le suivant</button>
-        <button type="button" data-n="3">Les 3 suivants</button>
-        <button type="button" data-n="all">Tout télécharger</button>
-      </div>
-    </div>
-    <div class="mMenu">
-      <button id="shMenuBtn" class="iconbtn" type="button" aria-label="Options"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
-      <div class="menuPop" id="shMenuPop" hidden>
-        <button id="shAddEp" type="button">Ajouter des épisodes</button>
-        <button id="shCoverBtn" type="button">Changer l'affiche</button>
-        <button id="shDelete" type="button">Supprimer</button>
-      </div>
-    </div>
-  </header>
-  <div class="mHead">
-    <div class="mCover" id="shCover"><span class="ph"></span></div>
-    <div class="mInfo">
-      <h2 id="shTitle"></h2>
-      <button type="button" class="mKind" id="shKind"></button>
-      <div class="chCount" id="shInfo"></div>
-    </div>
-  </div>
-  <div class="mActs">
-    <button id="shFav" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg><span>Favori</span></button>
-    <button id="shAdd" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><span>Ajouter</span></button>
-  </div>
-  <div class="mProg" id="shProg" hidden>
-    <div class="txt"><span id="shProgTxt"></span><span id="shProgPct"></span></div>
-    <div class="pbar"><i id="shProgFill"></i></div>
-  </div>
-  <button class="continue" id="shContinue" type="button">Regarder</button>
-  <div class="chList">
-    <div class="chHead">
-      <div class="chCount" id="shCount"></div>
-      <button id="shSort" class="iconbtn sortBtn asc" type="button" aria-label="Inverser l'ordre"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg></button>
-    </div>
-    <div id="shEps"></div>
-  </div>
-</div>
-
-<!-- Lecteur vidéo -->
-<div id="vplayer" hidden>
-  <div class="vpBar">
-    <button id="vpClose" class="iconbtn" type="button" aria-label="Fermer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
-    <button id="vpPrev" class="iconbtn" type="button" aria-label="Épisode précédent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
-    <div class="vpTitle" id="vpTitle"></div>
-    <button id="vpSkip" class="vpTxt" type="button">+85 s</button>
-    <button id="vpRate" class="vpTxt" type="button">1×</button>
-    <button id="vpWeb" class="iconbtn" type="button" aria-label="Ouvrir dans le navigateur"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.7 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.7-3.8-9s1.3-6.4 3.8-9Z"/></svg></button>
-    <button id="vpNext" class="iconbtn" type="button" aria-label="Épisode suivant"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
-  </div>
-  <div id="vpStage"></div>
-</div>
-
-<dialog id="dlgVAdd" class="sheet">
-  <form id="vaForm" novalidate autocomplete="off">
-    <h3 id="vaH">Ajouter une vidéo</h3>
-    <p class="hint">Colle l'adresse d'un site de vidéos pour parcourir son catalogue, ou directement le lien d'un épisode, d'un film ou d'une série. Le reste est trouvé tout seul.</p>
-    <textarea id="vaLinks" spellcheck="false" autocapitalize="off" placeholder="https://…  (un lien par ligne)"></textarea>
-    <div class="alt"><button id="vaPaste" class="link" type="button">Coller depuis le presse-papiers</button></div>
-    <p>Site : son catalogue s'affiche dans l'onglet Vidéos. Épisode ou film : la vidéo est cherchée dans la page et lue ici. Le téléchargement hors ligne marche quand un fichier direct est trouvé.</p>
-    <details id="vaMore" style="margin-top:10px">
-      <summary class="link">Options (facultatif)</summary>
-      <label for="vaTitle">Nom (si le lien ne le donne pas)</label>
-      <input id="vaTitle" type="text" list="vaList" autocapitalize="words">
-      <datalist id="vaList"></datalist>
-      <label for="vaType">Type</label>
-      <select id="vaType"><option value="">Automatique</option><option>Anime</option><option>K-drama</option><option>Série</option><option>Film</option></select>
-      <label for="vaPoster">Affiche (lien)</label>
-      <input id="vaPoster" type="url" inputmode="url" placeholder="https://…" autocapitalize="off" spellcheck="false">
-    </details>
-    <p id="vaMsg" role="status" aria-live="polite"></p>
-    <div class="alt vaFiles"><button id="vaFiles" class="link" type="button">Importer des vidéos de l'appareil (hors ligne direct)</button></div>
-    <div class="row">
-      <button type="button" class="ghost" id="vaCancel">Annuler</button>
-      <button id="vaGo" class="primary" type="submit">Ajouter</button>
-    </div>
-  </form>
-</dialog>
-<input id="vFiles" type="file" accept="video/*,.mkv" multiple hidden>
-<input id="vCoverFile" type="file" accept="image/*" hidden>
-
-<dialog id="dlgVRow" class="sheet">
-  <h3 id="vrT"></h3>
-  <div class="sheetList">
-    <button id="vrPlay" type="button">Regarder</button>
-    <button id="vrSeen" type="button"></button>
-    <button id="vrDl" type="button"></button>
-    <button id="vrWeb" type="button">Ouvrir le lien dans le navigateur</button>
-    <button id="vrDel" type="button" class="danger">Supprimer cet épisode</button>
-  </div>
-</dialog>
 
 <!-- Écran d'un site -->
 <div id="view-source" hidden>
@@ -1177,14 +1020,12 @@ const cfg = {
 const idb = (() => {
   let dbp;
   const open = () => dbp || (dbp = new Promise((res, rej) => {
-    const r = indexedDB.open('lecteur', 3);
+    const r = indexedDB.open('lecteur', 2);
     r.onupgradeneeded = e => {
       const db = r.result;
       if (!db.objectStoreNames.contains('chapters')) db.createObjectStore('chapters', { keyPath: 'id' });
       if (!db.objectStoreNames.contains('blobs')) db.createObjectStore('blobs');
       if (!db.objectStoreNames.contains('mangas')) db.createObjectStore('mangas', { keyPath: 'id' });
-      if (!db.objectStoreNames.contains('shows')) db.createObjectStore('shows', { keyPath: 'id' });
-      if (!db.objectStoreNames.contains('episodes')) db.createObjectStore('episodes', { keyPath: 'id' });
     };
     r.onsuccess = () => res(r.result);
     r.onerror = () => rej(r.error);
@@ -1203,12 +1044,6 @@ const idb = (() => {
     putChapter: c => { c._upd = Date.now(); return run('chapters', 'readwrite', s => s.put(c)); },
     putChapterRaw: c => run('chapters', 'readwrite', s => s.put(c)),
     putChapters: l => run('chapters', 'readwrite', s => { l.forEach(c => { c._upd = Date.now(); s.put(c); }); }),
-    listShows: () => run('shows', 'readonly', s => s.getAll()),
-    putShow: x => { x._upd = Date.now(); return run('shows', 'readwrite', s => s.put(x)); },
-    delShow: id => run('shows', 'readwrite', s => s.delete(id)),
-    listEpisodes: () => run('episodes', 'readonly', s => s.getAll()),
-    putEpisode: x => { x._upd = Date.now(); return run('episodes', 'readwrite', s => s.put(x)); },
-    delEpisode: async x => { await run('blobs', 'readwrite', s => s.delete('vid:' + x.id)).catch(() => {}); await run('episodes', 'readwrite', s => s.delete(x.id)); },
     listMangas: () => run('mangas', 'readonly', s => s.getAll()),
     putManga: m => { m._upd = Date.now(); return run('mangas', 'readwrite', s => s.put(m)); },
     putMangaRaw: m => run('mangas', 'readwrite', s => s.put(m)),
@@ -1986,7 +1821,7 @@ function findSearchTemplate(doc, base) {
 
 function catalogCandidates(doc, base) {
   const origin = new URL(base).origin, seen = new Set([base]), scored = [];
-  const KW = /catalog|liste|list|manga|manhwa|manhua|webtoon|series|comics|projet|project|tous|bibliotheque|library|anime|drama|film|movie|video|streaming|dorama/i;
+  const KW = /catalog|liste|list|manga|manhwa|manhua|webtoon|series|comics|projet|project|tous|bibliotheque|library/i;
   doc.querySelectorAll('a[href]').forEach(a => {
     let u; try { u = new URL(a.getAttribute('href'), base); } catch { return; }
     u.hash = ''; u.search = '';
@@ -1997,7 +1832,7 @@ function catalogCandidates(doc, base) {
   });
   scored.sort((a, b) => b.s - a.s);
   const out = scored.slice(0, 3).map(x => x.h);
-  ['catalogue', 'manga', 'mangas', 'series', 'liste-manga', 'manga-list', 'comics', 'webtoons', 'manhwa', 'anime', 'animes', 'drama', 'dramas', 'kdrama', 'films', 'movies', 'liste-animes', 'catalogue-animes'].forEach(p => {
+  ['catalogue', 'manga', 'mangas', 'series', 'liste-manga', 'manga-list', 'comics', 'webtoons', 'manhwa'].forEach(p => {
     const h = origin + '/' + p + '/';
     if (!out.includes(h) && !seen.has(h)) out.push(h);
   });
@@ -2024,7 +1859,7 @@ async function discoverSite(input, say) {
     }
   }
   if (!catalogUrl && first.length >= 3) catalogUrl = u.href;
-  if (!catalogUrl) throw new Error('Je n\'ai pas trouvé la liste des titres de ce site. Colle plutôt l\'adresse de sa page « catalogue » ou « liste ».');
+  if (!catalogUrl) throw new Error('Je n\'ai pas trouvé la liste des mangas de ce site. Colle plutôt l\'adresse de sa page « catalogue » ou « liste des mangas ».');
   return { id: newId(), host, origin: u.origin, catalogUrl, searchTpl: search, addedAt: Date.now() };
 }
 
@@ -2236,20 +2071,8 @@ async function backfillMeta(m) {
 }
 async function openFromSource(src, item, card) {
   card.classList.add('busy'); smsg('Ouverture de « ' + item.title + ' »…');
-  if (src.video) {
-    try {
-      const sh = await vImportSeries(item.url, item.title, item.cover);
-      if (sh) { smsg(''); await vOpenShow(sh.id); }
-      else smsg('Aucune vidéo trouvée sur cette page. Le site la charge peut-être avec un script : copie le lien de l\'épisode et colle-le dans Vidéos.', true);
-    } catch (e) { smsg(siteError(e), true); }
-    card.classList.remove('busy'); return;
-  }
   try {
     const det = await fetchSeries(item.url);
-    if (!det.chapters.length) {
-      const sh = await vImportSeries(item.url, item.title, item.cover).catch(() => null);
-      if (sh) { src.video = true; saveSource(src); smsg(''); card.classList.remove('busy'); await vOpenShow(sh.id); return; }
-    }
     const title = item.title || det.title || src.host;
     const key = normKey(title, src.host);
     const all = (await idb.listMangas()) || [];
@@ -2358,7 +2181,7 @@ async function sourceLoad(reset) {
     items.forEach(i => sv.seen.add(i.url));
     sv.count += items.length;
     appendCards(items);
-    if (!sv.count) { sv.done = true; smsg(sv.q ? 'Aucun résultat pour « ' + sv.q + ' ».' : 'Aucun résultat sur cette page du site.'); }
+    if (!sv.count) { sv.done = true; smsg(sv.q ? 'Aucun résultat pour « ' + sv.q + ' ».' : 'Aucun manga trouvé sur cette page du site.'); }
     else {
       if (!sv.next.length) sv.done = true;
       smsg(note || (sv.done ? 'Fin de la liste.' : ''));
@@ -2378,7 +2201,6 @@ async function openSource(src, opts) {
   sv.tag = (opts && opts.tag) || null; sv.from = (opts && opts.from) || null;
   $('#sTagBar').hidden = !sv.tag; if (sv.tag) $('#sTagName').textContent = sv.tag.n;
   $('#sTitle').textContent = src.host;
-  $('#sQ').placeholder = src.video ? 'Chercher un anime, un drama, un film…' : 'Chercher un manga sur ce site';
   $('#view-source').hidden = false; $('#view-source').scrollTop = 0;
   sv.token++; sv.busy = false; sv.done = true; $('#sGrid').innerHTML = '';
   src.lastUsed = Date.now(); saveSource(src); renderSources();
@@ -2402,7 +2224,7 @@ async function openSource(src, opts) {
 }
 $('#sBack').onclick = () => {
   if (sv.from) { const id = sv.from; sv.from = null; $('#view-source').hidden = true; openManga(id); }
-  else showView(sv.src && sv.src.video ? 'vid' : 'browse');
+  else showView('browse');
 };
 $('#sTagX').onclick = () => openSource(sv.src, { from: sv.from });
 /* Toucher une étiquette : toutes les œuvres du site qui l'ont aussi */
@@ -2444,7 +2266,7 @@ function srcRow(src) {
   const ico = row.querySelector('.srcIco');
   ico.textContent = src.host[0].toUpperCase(); ico.style.setProperty('--h', srcHue(src.host));
   row.querySelector('.t').textContent = src.host;
-  row.querySelector('.m').textContent = src.blocked ? 'Protégé : lecture via le navigateur' : (src.video ? 'Catalogue vidéo' : 'Catalogue et recherche');
+  row.querySelector('.m').textContent = src.blocked ? 'Protégé : lecture via le navigateur' : 'Catalogue et recherche';
   const pin = row.querySelector('.pin');
   pin.classList.toggle('on', !!src.pinned);
   pin.setAttribute('aria-label', src.pinned ? 'Désépingler' : 'Épingler');
@@ -2501,22 +2323,15 @@ $('#addForm').addEventListener('submit', async e => {
 
 /* ---------- Navigation entre les vues ---------- */
 function showView(name) {
-  if (name === 'lib' || name === 'browse' || name === 'vid') $('#view-source').hidden = true;
+  if (name === 'lib' || name === 'browse') $('#view-source').hidden = true;
   $('#view-lib').hidden = name !== 'lib';
   $('#view-browse').hidden = name !== 'browse';
-  $('#view-vid').hidden = name !== 'vid';
-  $('#view-show').hidden = true;
   $('#tabbar').hidden = name === 'manga';
   $('#view-manga').hidden = name !== 'manga';
   $('#tabLib').classList.toggle('on', name === 'lib');
-  $('#tabVid').classList.toggle('on', name === 'vid');
   $('#tabBrowse').classList.toggle('on', name === 'browse');
-  if (name !== 'lib') $('#fab').hidden = true;
-  if (name !== 'vid') $('#vFab').hidden = true;
   if (name === 'lib') renderLib();
-  if (name === 'vid') renderVid();
 }
-$('#tabVid').onclick = () => showView('vid');
 $('#tabLib').onclick = () => showView('lib');
 $('#tabBrowse').onclick = () => showView('browse');
 $('#libSearchBtn').onclick = () => {
@@ -4472,639 +4287,6 @@ async function importFromHash() {
   } catch { say('Rien n\'a pu être lu depuis le navigateur. Recommence depuis la page du site.', true); }
 }
 window.addEventListener('hashchange', importFromHash);
-
-/* ---------- Vidéos : animes, k-dramas, séries, films ---------- */
-const VTYPES = ['Anime', 'K-drama', 'Série', 'Film'];
-const VFILTERS = [['all', 'Tous'], ['fav', 'Favoris'], ['Anime', 'Anime'], ['K-drama', 'K-drama'], ['Série', 'Séries'], ['Film', 'Films']];
-const VKIND_TXT = { file: 'lien direct', hls: 'flux .m3u8', embed: 'lecteur intégré', page: 'page web', local: 'fichier de l\'appareil', site: 'site' };
-const ICON_PLAYWEB = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M10 8.5v7l5.5-3.5z"/></svg>';
-const vProg = new Map(), vResolved = new Map();
-let curShowId = null, vEps = [], vCur = null, vVideo = null, vHls = null, vBlobUrl = null, vLastSave = 0, vWake = null;
-const vId = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-const vSize = b => b >= 1e9 ? (b / 1e9).toFixed(2) + ' Go' : Math.round(b / 1e6) + ' Mo';
-
-function vClassify(raw) {
-  let u; try { u = new URL(String(raw).trim()); } catch { return null; }
-  if (!/^https?:$/.test(u.protocol)) return null;
-  const p = u.pathname.toLowerCase(), h = u.hostname.replace(/^www\./, '');
-  if (/\.(mp4|m4v|webm|mov|ogv|mkv)$/.test(p)) return { kind: 'file', url: u.href };
-  if (/\.m3u8$/.test(p)) return { kind: 'hls', url: u.href };
-  let m;
-  if (h === 'youtu.be' && (m = p.match(/^\/([\w-]{6,})/))) return { kind: 'embed', url: u.href, embed: 'https://www.youtube.com/embed/' + m[1] };
-  if (/(^|\.)youtube\.com$/.test(h)) {
-    if ((m = p.match(/^\/(?:embed|shorts)\/([\w-]{6,})/))) return { kind: 'embed', url: u.href, embed: 'https://www.youtube.com/embed/' + m[1] };
-    const v = u.searchParams.get('v'); if (v) return { kind: 'embed', url: u.href, embed: 'https://www.youtube.com/embed/' + v };
-  }
-  if (h === 'vimeo.com' && (m = p.match(/^\/(\d+)/))) return { kind: 'embed', url: u.href, embed: 'https://player.vimeo.com/video/' + m[1] };
-  if (/(^|\.)dailymotion\.com$/.test(h) && (m = p.match(/\/video\/([a-z0-9]+)/))) return { kind: 'embed', url: u.href, embed: 'https://www.dailymotion.com/embed/video/' + m[1] };
-  return { kind: 'page', url: u.href, embed: u.href };
-}
-
-async function vAniCover(title) {
-  try {
-    const q = 'query($s:String){Media(search:$s,type:ANIME){coverImage{large}}}';
-    const r = await fetch('https://graphql.anilist.co', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ query: q, variables: { s: title } }) });
-    if (!r.ok) return null;
-    const j = await r.json();
-    return (j && j.data && j.data.Media && j.data.Media.coverImage && j.data.Media.coverImage.large) || null;
-  } catch { return null; }
-}
-async function vCoverSrc(s) {
-  if (s.coverType === 'blob') { const b = await idb.blob('vcover:' + s.id).catch(() => null); if (b) return URL.createObjectURL(b); }
-  if (s.coverType === 'url' && s.coverUrl) return s.coverUrl;
-  return null;
-}
-function vSetCover(box, src, alt) {
-  if (!src) return;
-  const img = new Image(); img.alt = alt || ''; img.decoding = 'async'; img.referrerPolicy = 'no-referrer';
-  img.onload = () => { const ph = box.querySelector('.ph'); if (ph) ph.replaceWith(img); };
-  img.src = src;
-}
-const vSort = (a, b) => (a.n ?? 1e9) - (b.n ?? 1e9) || a.added - b.added;
-const vNum = t => { const m = String(t || '').match(/(\d+(?:\.\d+)?)\s*$/) || String(t || '').match(/(?:ep(?:isode|\.)?|e|#)\s*(\d+(?:\.\d+)?)/i); return m ? +m[1] : null; };
-
-/* ----- Bibliothèque vidéo ----- */
-function paintVBar(f) {
-  const bar = $('#vBar'); bar.innerHTML = '';
-  VFILTERS.forEach(([k, l]) => {
-    const x = document.createElement('button'); x.type = 'button'; x.className = 'chip' + (k === f ? ' on' : ''); x.textContent = l;
-    x.onclick = () => { store.set('vFilter', k); renderVid(); };
-    bar.appendChild(x);
-  });
-}
-async function renderVid() {
-  const [shows, eps] = await Promise.all([idb.listShows(), idb.listEpisodes()]);
-  let f = store.get('vFilter', 'all'); if (!VFILTERS.some(o => o[0] === f)) f = 'all';
-  const by = new Map(); (eps || []).forEach(e => { if (!by.has(e.showId)) by.set(e.showId, []); by.get(e.showId).push(e); });
-  const all = shows || [];
-  let list = all.filter(s => f === 'all' || (f === 'fav' ? !!s.fav : s.type === f));
-  list.sort((a, b) => (b.lastWatchAt || b.addedAt || 0) - (a.lastWatchAt || a.addedAt || 0));
-  const grid = $('#vGrid'); grid.innerHTML = '';
-  const total = all.length, filtered = f !== 'all' && total > 0;
-  $('#vBar').hidden = total === 0; if (total) paintVBar(f);
-  const vsites = srcs.list().filter(x => x.video).sort((a, b) => (b.lastUsed || 0) - (a.lastUsed || 0));
-  const sb = $('#vSites'); sb.innerHTML = ''; sb.hidden = !vsites.length;
-  vsites.forEach(x => { const b = document.createElement('button'); b.type = 'button'; b.className = 'chip site'; b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.7 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.7-3.8-9s1.3-6.4 3.8-9Z"/></svg><span></span>'; b.querySelector('span').textContent = x.host; b.onclick = () => openSource(x); b.oncontextmenu = ev => { ev.preventDefault(); vSiteMenu(x); }; longPress(b, () => vSiteMenu(x)); sb.appendChild(b); });
-  $('#vEmpty').hidden = list.length > 0 || vsites.length > 0;
-  $('#vFab').hidden = (total === 0 && !vsites.length) || $('#view-vid').hidden;
-  $('#vEmTitle').textContent = filtered ? 'Rien dans cette catégorie' : 'Aucune vidéo pour l\'instant';
-  $('#vEmSub').hidden = $('#vEmptyAdd').hidden = filtered;
-  const frag = document.createDocumentFragment();
-  for (const s of list) {
-    const es = by.get(s.id) || [], seen = es.filter(e => e.watched).length;
-    const card = document.createElement('button'); card.type = 'button'; card.className = 'card';
-    card.innerHTML = '<div class="cover"><span class="ph"></span><span class="vBadge"></span><span class="vCnt" hidden></span></div><span class="name"></span>';
-    card.querySelector('.name').textContent = s.title;
-    card.querySelector('.ph').textContent = s.title.trim()[0]?.toUpperCase() || '?';
-    card.querySelector('.vBadge').textContent = s.type || 'Anime';
-    const cnt = card.querySelector('.vCnt');
-    if (es.length > 1) { cnt.hidden = false; cnt.textContent = seen + '/' + es.length; }
-    card.onclick = () => vOpenShow(s.id);
-    frag.appendChild(card);
-    vCoverSrc(s).then(src => vSetCover(card.querySelector('.cover'), src, s.title));
-  }
-  grid.appendChild(frag);
-}
-
-/* ----- Fiche série ----- */
-async function vOpenShow(id) {
-  curShowId = id;
-  const [shows, eps] = await Promise.all([idb.listShows(), idb.listEpisodes()]);
-  const s = (shows || []).find(x => x.id === id);
-  if (!s) { vCloseShow(); return; }
-  vEps = (eps || []).filter(e => e.showId === id).sort(vSort);
-  $('#shTop').textContent = s.title; $('#shTitle').textContent = s.title;
-  $('#shKind').textContent = s.type || 'Anime';
-  $('#shKind').onclick = async () => { s.type = VTYPES[(VTYPES.indexOf(s.type || 'Anime') + 1) % VTYPES.length]; $('#shKind').textContent = s.type; await idb.putShow(s); };
-  const cover = $('#shCover'); cover.innerHTML = '<span class="ph"></span>'; cover.querySelector('.ph').textContent = s.title.trim()[0]?.toUpperCase() || '?';
-  vCoverSrc(s).then(src => vSetCover(cover, src, s.title));
-  $('#shFav').classList.toggle('on', !!s.fav);
-  $('#shFav').onclick = async () => { s.fav = !s.fav; $('#shFav').classList.toggle('on', s.fav); await idb.putShow(s); };
-  vPaintShow();
-  $('#view-show').hidden = false; $('#tabbar').hidden = true; $('#view-show').scrollTop = 0;
-}
-function vPaintShow() {
-  const desc = store.get('vDesc', '0') === '1';
-  const list = desc ? vEps.slice().reverse() : vEps;
-  const box = $('#shEps'); box.innerHTML = '';
-  list.forEach(e => box.appendChild(vBuildRow(e)));
-  const off = vEps.filter(e => e.saved).length, seen = vEps.filter(e => e.watched).length;
-  $('#shCount').textContent = vEps.length + (vEps.length > 1 ? ' épisodes' : ' épisode');
-  $('#shInfo').textContent = off ? off + ' hors ligne' : '';
-  $('#shSort').classList.toggle('asc', !desc);
-  const pr = $('#shProg'); pr.hidden = !vEps.length;
-  const pct = vEps.length ? Math.round(seen / vEps.length * 100) : 0;
-  $('#shProgTxt').textContent = seen + ' vu(s) sur ' + vEps.length; $('#shProgPct').textContent = pct + ' %'; $('#shProgFill').style.width = pct + '%';
-  const next = vNextToWatch();
-  const c = $('#shContinue'); c.disabled = !next; c.hidden = !vEps.length;
-  c.textContent = !next ? 'Rien à regarder' : (seen || +store.get('vprog:' + next.id, 0) > 5 ? 'Continuer : ' : 'Regarder : ') + next.title;
-}
-function vNextToWatch() {
-  const part = vEps.find(e => !e.watched && +store.get('vprog:' + e.id, 0) > 5);
-  return part || vEps.find(e => !e.watched) || null;
-}
-function vBuildRow(e) {
-  const row = document.createElement('div'); row.className = 'chRow'; row.dataset.ep = e.id;
-  row.innerHTML = '<button type="button" class="open"><span class="t"></span><span class="m"></span></button><button type="button" class="dl"></button>';
-  row.querySelector('.t').textContent = e.title;
-  row.querySelector('.open').onclick = () => vPlay(e);
-  row.querySelector('.dl').onclick = () => vTapDl(e);
-  longPress(row.querySelector('.open'), () => vRowMenu(e));
-  vPaintRow(e, row);
-  return row;
-}
-function vPaintRow(e, row) {
-  row = row || document.querySelector('.chRow[data-ep="' + e.id + '"]'); if (!row) return;
-  const pr = vProg.get(e.id), t = +store.get('vprog:' + e.id, 0), d = +store.get('vdur:' + e.id, 0);
-  row.classList.toggle('read', !!e.watched);
-  const dl = row.querySelector('.dl');
-  if (e.kind === 'embed' || e.kind === 'hls') { dl.className = 'dl'; dl.innerHTML = ICON_PLAYWEB; dl.setAttribute('aria-label', 'Lecture en ligne seulement'); }
-  else {
-    dl.className = 'dl' + (pr ? ' progress' : e.saved ? ' done' : '');
-    dl.innerHTML = pr ? iconProgress(pr.total ? pr.done / pr.total : 0) : e.saved ? ICON_DONE : ICON_DL;
-    dl.setAttribute('aria-label', pr ? 'Arrêter le téléchargement' : e.saved ? 'Téléchargé' : 'Télécharger');
-  }
-  let st = VKIND_TXT[e.kind] || '';
-  if (pr) st = 'téléchargement ' + (pr.total ? Math.round(pr.done / pr.total * 100) + ' % (' + vSize(pr.done) + ')' : vSize(pr.done));
-  else if (e.saved) st = 'hors ligne' + (e.size ? ' · ' + vSize(e.size) : '');
-  if (e.watched) st += ' · vu'; else if (t > 5 && !pr) st += ' · à ' + (d ? Math.round(t / d * 100) + ' %' : Math.floor(t / 60) + ' min');
-  const mm = row.querySelector('.m'); mm.textContent = st; mm.classList.toggle('ok', !!e.saved && !pr);
-}
-function vCloseShow() { $('#view-show').hidden = true; $('#tabbar').hidden = false; curShowId = null; if (!$('#view-vid').hidden) renderVid(); }
-$('#shBack').onclick = vCloseShow;
-$('#shSort').onclick = () => { store.set('vDesc', store.get('vDesc', '0') === '1' ? '0' : '1'); vPaintShow(); };
-$('#shContinue').onclick = () => { const n = vNextToWatch(); if (n) vPlay(n); };
-$('#shMenuBtn').onclick = () => { $('#shMenuPop').hidden = !$('#shMenuPop').hidden; $('#shDlPop').hidden = true; };
-$('#shDlBtn').onclick = () => { $('#shDlPop').hidden = !$('#shDlPop').hidden; $('#shMenuPop').hidden = true; };
-document.addEventListener('click', e => { if (!e.target.closest('#view-show .mMenu')) { $('#shMenuPop').hidden = true; $('#shDlPop').hidden = true; } });
-document.querySelectorAll('#shDlPop button').forEach(b => b.onclick = () => {
-  $('#shDlPop').hidden = true;
-  const dl = vEps.filter(e => (e.kind === 'file' || e.kind === 'page') && !e.saved && !vProg.has(e.id));
-  if (!dl.length) { toast('Rien à télécharger : seuls les liens directs (.mp4, .webm) peuvent l\'être.'); return; }
-  const from = Math.max(0, vEps.findIndex(e => !e.watched));
-  const pool = b.dataset.n === 'all' ? dl : vEps.slice(from).filter(e => dl.includes(e)).slice(0, +b.dataset.n);
-  vDownloadMany(pool);
-});
-$('#shAdd').onclick = $('#shAddEp').onclick = () => { $('#shMenuPop').hidden = true; vOpenAdd(curShowId); };
-$('#shCoverBtn').onclick = () => { $('#shMenuPop').hidden = true; $('#vCoverFile').click(); };
-$('#vCoverFile').addEventListener('change', async e => {
-  const f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f || !curShowId) return;
-  const s = (await idb.listShows()).find(x => x.id === curShowId); if (!s) return;
-  try { await idb.putBlob('vcover:' + s.id, await scaledBlob(f, 800)); s.coverType = 'blob'; delete s.coverUrl; await idb.putShow(s); vOpenShow(s.id); toast('Affiche mise à jour.'); }
-  catch { toast('Impossible d\'enregistrer cette image.'); }
-});
-$('#shDelete').onclick = async () => {
-  $('#shMenuPop').hidden = true;
-  const s = (await idb.listShows()).find(x => x.id === curShowId); if (!s) return;
-  if (!await uiConfirm('Ses épisodes téléchargés seront aussi supprimés de cet appareil.', { title: 'Supprimer « ' + s.title + ' » ?', ok: 'Supprimer', danger: true })) return;
-  for (const e of vEps) await idb.delEpisode(e);
-  await idb.delBlob('vcover:' + s.id).catch(() => {});
-  await idb.delShow(s.id); vCloseShow();
-};
-
-/* ----- Menu d'un épisode (appui long) ----- */
-const dlgVRow = $('#dlgVRow');
-dlgVRow.addEventListener('click', e => { if (e.target === dlgVRow) dlgVRow.close(); });
-function vRowMenu(e) {
-  $('#vrT').textContent = e.title;
-  $('#vrSeen').textContent = e.watched ? 'Marquer comme non vu' : 'Marquer comme vu';
-  const dlOk = e.kind === 'file' || e.kind === 'page';
-  $('#vrDl').hidden = !dlOk; $('#vrDl').textContent = e.saved ? 'Supprimer le téléchargement' : 'Télécharger';
-  $('#vrWeb').hidden = e.kind === 'local';
-  $('#vrPlay').onclick = () => { dlgVRow.close(); vPlay(e); };
-  $('#vrSeen').onclick = async () => { dlgVRow.close(); e.watched = !e.watched; if (!e.watched) store.set('vprog:' + e.id, 0); await idb.putEpisode(e); vPaintShow(); };
-  $('#vrDl').onclick = () => { dlgVRow.close(); vTapDl(e); };
-  $('#vrWeb').onclick = () => { dlgVRow.close(); window.open(e.url, '_blank', 'noopener'); };
-  $('#vrDel').onclick = async () => {
-    dlgVRow.close();
-    if (!await uiConfirm(e.saved ? 'Le fichier téléchargé sera aussi supprimé.' : 'Le lien sera retiré de la série.', { title: 'Supprimer « ' + e.title + ' » ?', ok: 'Supprimer', danger: true })) return;
-    await idb.delEpisode(e); vOpenShow(curShowId);
-  };
-  dlgVRow.showModal();
-}
-
-/* ----- Téléchargement hors ligne (liens directs) ----- */
-async function vFetchStream(url, onProg, signal) {
-  let last = new Error('échec');
-  for (const u of [url, viaProxy(url)].filter(Boolean)) {
-    try {
-      const r = await fetch(u, { referrerPolicy: 'no-referrer', signal });
-      if (!r.ok) throw new Error('code ' + r.status);
-      const type = (r.headers.get('content-type') || '').toLowerCase(), total = +r.headers.get('content-length') || 0;
-      if (/text\/html/.test(type)) throw new Error('page');
-      const mime = /^video\//.test(type) ? type.split(';')[0] : (/\.webm(\?|$)/i.test(url) ? 'video/webm' : 'video/mp4');
-      if (!r.body || !r.body.getReader) { const b = await r.blob(); onProg(b.size, b.size); return new Blob([b], { type: mime }); }
-      const rd = r.body.getReader(), chunks = []; let got = 0;
-      for (;;) { const { done, value } = await rd.read(); if (done) break; chunks.push(value); got += value.length; onProg(got, total); }
-      return new Blob(chunks, { type: mime });
-    } catch (err) { if (err.name === 'AbortError') throw err; last = err; }
-  }
-  throw last;
-}
-async function vDownload(e, urlOverride) {
-  if (vProg.has(e.id)) return 'busy';
-  if (!urlOverride && e.kind !== 'file') return 'skip';
-  const ac = new AbortController(), pr = { done: 0, total: 0, ac }; vProg.set(e.id, pr); vPaintRow(e);
-  try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch {}
-  let tick = 0, res = 'ok';
-  try {
-    const b = await vFetchStream(urlOverride || e.url, (g, t) => { pr.done = g; pr.total = t; const n = Date.now(); if (n - tick > 300) { tick = n; vPaintRow(e); } }, ac.signal);
-    if (b.size < 50000) throw new Error('fichier trop petit');
-    await idb.putBlob('vid:' + e.id, b); e.saved = true; e.size = b.size; await idb.putEpisode(e);
-  } catch (err) { res = err.name === 'AbortError' ? 'abort' : 'fail'; }
-  vProg.delete(e.id); vPaintRow(e); vPaintShowInfo();
-  return res;
-}
-function vPaintShowInfo() { const off = vEps.filter(x => x.saved).length; $('#shInfo').textContent = off ? off + ' hors ligne' : ''; }
-async function vDownloadEp(e) {
-  if (e.kind === 'page') { const r = await vResolveCached(e).catch(() => null); if (!r || r.kind !== 'file') return 'nofile'; return vDownload(e, r.url); }
-  return vDownload(e);
-}
-async function vDownloadMany(list) {
-  toast('Téléchargement de ' + list.length + ' épisode(s)…');
-  let ok = 0, bad = 0;
-  for (const e of list) { const r = await vDownloadEp(e); if (r === 'ok') ok++; else if (r === 'fail' || r === 'nofile') bad++; }
-  toast(bad ? ok + ' terminé(s), ' + bad + ' impossible(s) : pas de fichier direct, ou le serveur refuse le téléchargement.' : 'Téléchargement terminé.');
-}
-async function vTapDl(e) {
-  if (e.kind === 'embed' || e.kind === 'hls') {
-    toast(e.kind === 'hls' ? 'Les flux .m3u8 ne se téléchargent pas ici. Lecture en ligne seulement.' : 'Ce lecteur intégré se regarde en ligne. Pour le hors ligne : lien direct .mp4, ou importe le fichier.');
-    return;
-  }
-  if (vProg.has(e.id)) { vProg.get(e.id).ac.abort(); return; }
-  if (e.kind === 'local') { toast('Cette vidéo vient de ton appareil : elle est déjà hors ligne.'); return; }
-  if (e.saved) { if (await uiConfirm('Tu pourras la retélécharger plus tard.', { title: 'Supprimer le téléchargement ?', ok: 'Supprimer', danger: true })) { await idb.delBlob('vid:' + e.id).catch(() => {}); e.saved = false; e.size = 0; await idb.putEpisode(e); vPaintRow(e); vPaintShowInfo(); } return; }
-  if (e.kind === 'page') toast('Recherche du fichier vidéo…');
-  const r = await vDownloadEp(e);
-  if (r === 'nofile') { toast('Aucun fichier direct trouvé sur cette page : lecture en ligne seulement.'); return; }
-  if (r === 'ok') toast(e.title + ' : disponible hors ligne.');
-  else if (r === 'fail') toast('Téléchargement impossible : le serveur bloque les lectures depuis une page web (CORS). Tu peux regarder en ligne, ou télécharger le fichier autrement puis l\'importer ici.');
-}
-
-/* ----- Ajout d'épisodes ----- */
-const dlgVAdd = $('#dlgVAdd');
-function vaSay(t, err) { const m = $('#vaMsg'); m.textContent = t || ''; m.className = err ? 'err' : ''; }
-async function vOpenAdd(showId) {
-  const shows = await idb.listShows();
-  $('#vaList').innerHTML = (shows || []).map(x => '<option value="' + x.title.replace(/"/g, '&quot;') + '">').join('');
-  const sh = showId && (shows || []).find(x => x.id === showId);
-  $('#vaTitle').value = sh ? sh.title : ''; $('#vaTitle').readOnly = !!sh;
-  $('#vaType').value = sh ? (sh.type || 'Anime') : ''; $('#vaType').disabled = !!sh;
-  $('#vaLinks').value = ''; $('#vaPoster').value = ''; $('#vaMore').open = false; vaSay('');
-  $('#vaH').textContent = sh ? 'Ajouter des épisodes' : 'Ajouter une vidéo';
-  dlgVAdd.showModal();
-}
-$('#vAddBtn').onclick = $('#vEmptyAdd').onclick = $('#vFab').onclick = () => vOpenAdd(null);
-$('#vaCancel').onclick = () => dlgVAdd.close();
-$('#openSettings3').onclick = openSettings;
-
-async function vResolveShow(title, type, poster) {
-  const shows = await idb.listShows(), key = norm(title);
-  let sh = (shows || []).find(x => norm(x.title) === key);
-  if (sh) return sh;
-  sh = { id: vId('s'), title, type, fav: false, addedAt: Date.now(), coverType: poster ? 'url' : null, coverUrl: poster || '' };
-  await idb.putShow(sh);
-  if (!poster && type === 'Anime') vAniCover(title).then(async u => { if (u) { sh.coverType = 'url'; sh.coverUrl = u; await idb.putShow(sh); if (!$('#view-vid').hidden) renderVid(); } });
-  return sh;
-}
-const vTimeout = (pr, ms) => Promise.race([pr, new Promise((_, rej) => setTimeout(() => rej(new Error('délai')), ms))]);
-const vHost = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
-function vIsSite(u) { try { const x = new URL(u); return (x.pathname === '/' || x.pathname === '') && !x.search; } catch { return false; } }
-function vFromUrl(u) {
-  try {
-    const x = new URL(u); const segs = x.pathname.split('/').filter(Boolean);
-    let last = decodeURIComponent(segs[segs.length - 1] || '').replace(/\.[a-z0-9]{2,4}$/i, '');
-    if (/^(index|master|playlist|video|stream|\d+)$/i.test(last) && segs.length > 1) last = decodeURIComponent(segs[segs.length - 2]) + ' ' + (/^\d+$/.test(last) ? last : '');
-    return last.replace(/[-_.+]+/g, ' ').replace(/\s+/g, ' ').trim().replace(/(^|\s)([a-zà-ÿ])/g, (m, a, b) => a + b.toUpperCase());
-  } catch { return ''; }
-}
-/* Sépare « Frieren - Episode 12 VOSTFR | Site » en { show, label, num } */
-function vSplit(raw) {
-  let t = String(raw || '').replace(/\s+/g, ' ').trim();
-  const parts = t.split(/\s+[|–—·»]\s+|\s+-\s+(?=[^-]*$)/);
-  if (parts.length > 1) {
-    const siteish = x => /(streaming|watch|regarder|online|gratuit|free|\.com|\.net|\.org|\.tv|\.fr|\.to|\.io)/i.test(x) || x.split(' ').length <= 2;
-    const keep = parts.filter((x, i) => !(i > 0 && siteish(x) && !/(episode|épisode|\bep\b|\be\d)/i.test(x)));
-    t = keep.join(' - ');
-  }
-  let num = null;
-  const epRe = /(?:^|[\s\-–—:(\[])(?:(?:[ée]pisodes?|ep\.?|e)\s*\.?\s*0*(\d{1,4})|(?:s\d{1,2}\s*e|\d{1,2}x)0*(\d{1,4}))(?=$|[\s\-–—:)\]])/i;
-  let m = t.match(epRe);
-  if (!m) m = t.match(/\s0*(\d{1,4})\s*(?:vostfr|vf|vostfr\s*hd|hd|fr|sub|eng)?\s*$/i);
-  let show = t;
-  if (m) { num = +(m[1] || m[2]); show = t.slice(0, m.index); }
-  show = show.replace(/\b(vostfr|vf|multi|streaming|hd|fhd|1080p|720p|saison\s*\d+|season\s*\d+|s\d{1,2})\b/ig, ' ').replace(/[\s\-–—:|,(\[]+$/g, '').replace(/\s+/g, ' ').trim();
-  if (!show) show = t.replace(/\s+/g, ' ').trim();
-  return { show, num, label: num != null ? 'Épisode ' + num : null };
-}
-function vGuessType(url, title) {
-  const x = (url + ' ' + title).toLowerCase();
-  if (/k-?drama|kdrama|korean|coreen|coréen|asian ?drama|dorama/.test(x)) return 'K-drama';
-  if (/anime|vostfr|manga/.test(x)) return 'Anime';
-  if (/\b(film|movie)\b/.test(x)) return 'Film';
-  return null;
-}
-async function vMeta(it) {
-  const out = { title: '', poster: '' };
-  try {
-    if (/(^|\.)youtube\.com$|(^|\.)youtu\.be$/.test(vHost(it.url))) {
-      const r = await vTimeout(fetch('https://www.youtube.com/oembed?format=json&url=' + encodeURIComponent(it.url)), 6000);
-      if (r.ok) { const j = await r.json(); out.title = j.title || ''; out.poster = ''; }
-    } else if (it.kind === 'page' || it.kind === 'embed') {
-      const html = await vTimeout(fetchText(it.url), 9000);
-      const doc = new DOMParser().parseFromString(html, 'text/html');
-      const g = q => { const e = doc.querySelector(q); return e ? (e.getAttribute('content') || '').trim() : ''; };
-      out.title = g('meta[property="og:title"]') || g('meta[name="twitter:title"]') || (doc.title || '').trim();
-      const img = g('meta[property="og:image"]') || g('meta[name="twitter:image"]');
-      if (img) { try { out.poster = new URL(img, it.url).href; } catch {} }
-    }
-  } catch {}
-  if (!out.title) out.title = vFromUrl(it.url);
-  return out;
-}
-
-$('#vaPaste').onclick = async () => {
-  try { const t = (await navigator.clipboard.readText() || '').trim(); if (!t) { vaSay('Le presse-papiers est vide.', true); return; } const c = $('#vaLinks'); c.value = c.value ? c.value.replace(/\s+$/, '') + '\n' + t : t; vaSay(''); }
-  catch { vaSay('Colle le lien directement dans la zone (appui long, Coller).', true); }
-};
-
-$('#vaForm').addEventListener('submit', async ev => {
-  ev.preventDefault();
-  const manual = $('#vaTitle').value.trim(), forced = $('#vaType').value, poster0 = $('#vaPoster').value.trim();
-  const lines = $('#vaLinks').value.split(/\n+/).map(x => x.trim()).filter(Boolean);
-  if (!lines.length) { vaSay('Colle au moins un lien, ou importe une vidéo de l\'appareil.', true); return; }
-  const items = [];
-  for (const ln of lines) {
-    let raw = (ln.match(/https?:\/\/\S+/i) || [])[0] || (/^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(ln) ? 'https://' + ln : '');
-    const c = raw && vClassify(raw.replace(/[),.;]+$/, ''));
-    if (!c) { vaSay('Pas de lien valide dans : « ' + ln.slice(0, 40) + ' »', true); return; }
-    items.push(Object.assign(c, { label: raw && ln.indexOf(raw) > 0 ? ln.slice(0, ln.indexOf(raw)).replace(/[|:\-–—\s]+$/, '').trim() : '' }));
-  }
-  const go = $('#vaGo'); go.disabled = true; go.textContent = 'Analyse…';
-  const cache = new Map(), touched = new Set(); let added = 0, lastShow = null, order = 0, siteSrc = null, blocked = false;
-  try {
-    for (const it of items) {
-      const have0 = await idb.listEpisodes();
-      if (have0.some(e => nk(e.url) === nk(it.url))) continue;
-      let doc = null, html = '';
-      if (it.kind === 'page') {
-        vaSay('Lecture de ' + vHost(it.url) + '…');
-        try { const r = await vTimeout(fetchDoc(it.url), 14000); doc = r.doc; html = r.html; } catch (e) { if (blockedErr(e)) blocked = true; }
-        const epPath = EP_URL.test(new URL(it.url).pathname);
-        if (!forced && !manual && !epPath && (vIsSite(it.url) || (doc && parseCatalog(doc, it.url).length >= 6))) {
-          let src = null;
-          try {
-            const found = await discoverSite(it.url, t => vaSay(t));
-            src = ensureSource(it.url, { catalogUrl: found.catalogUrl, searchTpl: found.searchTpl || null, blocked: false, video: true });
-          } catch (e) {
-            if (blockedErr(e)) src = ensureSource(it.url, { blocked: true, video: true });
-            else if (doc && parseCatalog(doc, it.url).length >= 3) src = ensureSource(it.url, { catalogUrl: it.url, blocked: false, video: true });
-            else { vaSay(e && e.message && e.message.startsWith('Je n\'ai pas') ? e.message : 'Impossible de lire le catalogue de ce site. Colle plutôt le lien d\'un épisode.', true); go.disabled = false; go.textContent = 'Ajouter'; return; }
-          }
-          siteSrc = src; continue;
-        }
-        if (doc && !epPath && !forced && !manual) {
-          const eps = vFindEpisodeLinks(doc, it.url, it.url);
-          if (eps.length >= 3) {
-            const sh = await vImportSeries(it.url, '', poster0); if (sh) { touched.add(sh.id); lastShow = sh; added++; continue; }
-          }
-        }
-      }
-      let meta = { title: '', poster: '' };
-      if (doc) { meta = vPageMeta(doc, it.url); if (!meta.title) meta.title = vFromUrl(it.url); } else meta = await vMeta(it);
-      const sp = vSplit(meta.title), title = manual || sp.show || vHost(it.url) || 'Sans titre';
-      let type = forced || vGuessType(it.url, meta.title);
-      const k = norm(title);
-      if (!type) { const cv = await vAniCover(title); type = cv ? 'Anime' : (cache.get(k) || 'Série'); if (cv && !poster0 && !meta.poster) meta.poster = cv; }
-      cache.set(k, type);
-      const sh = await vResolveShow(title, type, poster0 || (type === 'Anime' ? '' : meta.poster));
-      const have = have0.filter(e => e.showId === sh.id), n = have.reduce((mx, e) => Math.max(mx, e.n || 0), 0) + 1;
-      const isFilm = type === 'Film' && sp.num == null && !it.label;
-      const label = it.label || sp.label || (isFilm ? 'Film' : 'Épisode ' + n), num = vNum(it.label) != null ? vNum(it.label) : (sp.num != null ? sp.num : n);
-      const ep = { id: vId('e'), showId: sh.id, title: label, n: num, url: it.url, kind: it.kind, saved: false, watched: false, added: Date.now() + order++ };
-      if (it.embed) ep.embed = it.embed;
-      await idb.putEpisode(ep); added++; touched.add(sh.id); lastShow = sh;
-    }
-  } catch { vaSay('Impossible d\'ajouter ce lien pour le moment.', true); go.disabled = false; go.textContent = 'Ajouter'; return; }
-  go.disabled = false; go.textContent = 'Ajouter'; vaSay('');
-  dlgVAdd.close();
-  if (siteSrc && !added) { showView('vid'); openSource(siteSrc); return; }
-  toast(added ? added + ' ajouté(s)' + (touched.size > 1 ? ' dans ' + touched.size + ' séries.' : ' : ' + lastShow.title) : 'Ces liens étaient déjà ajoutés.');
-  if (lastShow && touched.size === 1) await vOpenShow(lastShow.id);
-  else if (!$('#view-vid').hidden) renderVid();
-  if ($('#view-vid').hidden && $('#view-show').hidden) showView('vid');
-});
-
-/* Import de fichiers vidéo de l'appareil (toujours hors ligne) */
-$('#vaFiles').onclick = () => $('#vFiles').click();
-$('#vFiles').addEventListener('change', async ev => {
-  const files = [...(ev.target.files || [])]; ev.target.value = '';
-  if (!files.length) return;
-  const manual = $('#vaTitle').value.trim(), forced = $('#vaType').value, poster = $('#vaPoster').value.trim();
-  files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
-  dlgVAdd.close();
-  try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch {}
-  let ok = 0, lastShow = null; const touched = new Set();
-  for (let i = 0; i < files.length; i++) {
-    const f = files[i]; imp.show('Import ' + (i + 1) + '/' + files.length + ' : ' + f.name, i / files.length);
-    try {
-      const base = f.name.replace(/\.[^.]+$/, '').replace(/[_.]+/g, ' ').trim(), sp = vSplit(base);
-      const title = manual || sp.show || 'Vidéos importées';
-      const type = forced || vGuessType('', base) || 'Série';
-      const sh = await vResolveShow(title, type, poster), have = (await idb.listEpisodes()).filter(e => e.showId === sh.id);
-      const n = have.reduce((mx, e) => Math.max(mx, e.n || 0), 0) + 1;
-      const ep = { id: vId('e'), showId: sh.id, title: sp.label || (sp.num == null && sp.show === base ? base : 'Épisode ' + n), n: sp.num != null ? sp.num : n, url: '', kind: 'local', saved: true, size: f.size, watched: false, added: Date.now() + i };
-      const blob = f.type && /^video\//.test(f.type) ? f : new Blob([f], { type: /\.webm$/i.test(f.name) ? 'video/webm' : 'video/mp4' });
-      await idb.putBlob('vid:' + ep.id, blob); await idb.putEpisode(ep); ok++; touched.add(sh.id); lastShow = sh;
-    } catch { toast('Import impossible pour « ' + f.name + ' » (plus assez de place ?).'); break; }
-  }
-  imp.hide();
-  if (ok) toast(ok + ' vidéo(s) importée(s), disponibles hors ligne.');
-  if (lastShow && touched.size === 1) await vOpenShow(lastShow.id);
-  if ($('#view-vid').hidden && $('#view-show').hidden) showView('vid'); else if (!$('#view-vid').hidden) renderVid();
-});
-
-/* ----- Sites vidéo : catalogue, séries et épisodes ----- */
-async function vSiteMenu(src) {
-  if (await uiConfirm('Les séries déjà dans ta bibliothèque restent.', { title: 'Retirer « ' + src.host + ' » ?', ok: 'Retirer', danger: true })) { srcs.save(srcs.list().filter(x => x.id !== src.id)); renderSources(); renderVid(); }
-}
-const EP_URL = /(?:episode|épisode|[-_/]ep[-_]?\d|[-_/]e\d+(?:\/|$|[-_]))/i;
-function vFindEpisodeLinks(doc, base, pageUrl) {
-  let pu; try { pu = new URL(pageUrl); } catch { return []; }
-  const seen = new Map();
-  doc.querySelectorAll('a[href]').forEach(a => {
-    const raw = a.getAttribute('href'); if (!raw || raw[0] === '#' || /^(?:javascript|mailto|tel):/i.test(raw.trim())) return;
-    let u; try { u = new URL(raw.trim(), base); } catch { return; }
-    if (u.origin !== pu.origin) return; u.hash = '';
-    if (stripSlash(u.pathname) === stripSlash(pu.pathname) || NOT_SERIES.test(u.pathname)) return;
-    const txt = clean(a.getAttribute('title') || a.textContent);
-    const tNum = /(?:^|[\s\-–—:(\[])(?:[ée]pisodes?|ep\.?|e)\s*\.?\s*0*(\d{1,4})\b/i.exec(txt) || /^0*(\d{1,4})$/.exec(txt);
-    const uNum = /(?:episode|épisode|[-_/]ep[-_]?|[-_/]e)0*(\d{1,4})(?:[^\d]|$)/i.exec(u.pathname);
-    if (!(tNum || uNum || (CHAP_TEXT.test(txt)))) return;
-    const n = tNum ? +tNum[1] : uNum ? +uNum[1] : vNum(txt);
-    const href = u.href;
-    if (!seen.has(href)) seen.set(href, { url: href, n, text: txt.length <= 50 ? txt : '' });
-  });
-  const list = [...seen.values()].filter(x => x.n != null);
-  const byN = new Map(); list.forEach(x => { if (!byN.has(x.n)) byN.set(x.n, x); });
-  return [...byN.values()].sort((a, b) => a.n - b.n);
-}
-function vPageMeta(doc, url) {
-  const g = q => { const e = doc.querySelector(q); return e ? (e.getAttribute('content') || '').trim() : ''; };
-  const h1 = doc.querySelector('h1'), title = g('meta[property="og:title"]') || (h1 ? clean(h1.textContent) : '') || clean(doc.title);
-  let poster = g('meta[property="og:image"]') || g('meta[name="twitter:image"]');
-  if (poster) { try { poster = new URL(poster, url).href; } catch { poster = ''; } }
-  return { title, poster };
-}
-const vHasPlayer = (doc, html) => !!doc.querySelector('video, iframe[src*="embed"], iframe[src*="player"], iframe[data-src]') || /\.(m3u8|mp4)\b/i.test(html);
-/* Page de série (ou de film) d'un site : crée la série avec tous ses épisodes */
-async function vImportSeries(url, titleHint, coverHint) {
-  const { html, doc } = await fetchDoc(url);
-  const meta = vPageMeta(doc, url), eps = vFindEpisodeLinks(doc, url, url);
-  const raw = titleHint || meta.title || vFromUrl(url), sp = vSplit(raw);
-  const title = sp.show || raw, poster = coverHint || meta.poster || '';
-  const type = vGuessType(url, raw) || 'Série';
-  let list = eps.slice(0, 600).map(x => ({ url: x.url, n: x.n, label: 'Épisode ' + x.n }));
-  if (!list.length) { if (!vHasPlayer(doc, html)) return null; list = [{ url, n: 1, label: 'Film' }]; }
-  const sh = await vResolveShow(title, type === 'Série' && !eps.length ? 'Film' : type, poster);
-  const have = new Set(((await idb.listEpisodes()) || []).filter(e => e.showId === sh.id).map(e => nk(e.url)));
-  let i = 0;
-  for (const it of list) {
-    if (have.has(nk(it.url))) continue;
-    await idb.putEpisode({ id: vId('e'), showId: sh.id, title: it.label, n: it.n, url: it.url, embed: it.url, kind: 'page', saved: false, watched: false, added: Date.now() + i++ });
-  }
-  return sh;
-}
-/* Trouve le vrai fichier ou flux vidéo caché dans une page de lecture */
-async function vResolveMedia(url, depth) {
-  depth = depth || 0;
-  let html; try { html = await vTimeout(fetchText(url), 10000); } catch { return null; }
-  const txt = html.replace(/\\\//g, '/').replace(/&amp;/g, '&');
-  const bad = /(preview|trailer|teaser|\/ads?\/|advert|doubleclick|banner|sample|logo)/i;
-  const found = [...txt.matchAll(/https?:\/\/[^\s"'<>\\)]+?\.(m3u8|mp4|webm)(?:\?[^\s"'<>\\)]*)?/gi)].map(m => ({ u: m[0], k: m[1].toLowerCase() })).filter(x => !bad.test(x.u));
-  const file = found.find(x => x.k !== 'm3u8'), hls = found.find(x => x.k === 'm3u8');
-  if (file) return { kind: 'file', url: file.u };
-  if (hls) return { kind: 'hls', url: hls.u };
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  const v = doc.querySelector('video[src], video source[src]');
-  if (v) { try { const u = new URL(v.getAttribute('src'), url).href; return { kind: /\.m3u8/i.test(u) ? 'hls' : 'file', url: u }; } catch {} }
-  const ifr = [...doc.querySelectorAll('iframe[src], iframe[data-src]')].map(i => { try { return new URL(i.getAttribute('src') || i.getAttribute('data-src'), url).href; } catch { return null; } })
-    .filter(u => u && /^https?:/.test(u) && !/(ads|doubleclick|facebook|twitter|disqus|recaptcha|google|about:blank)/i.test(u));
-  if (depth < 1) {
-    for (const f of ifr.slice(0, 3)) { const r = await vResolveMedia(f, depth + 1); if (r && r.kind !== 'embed') return r; }
-  }
-  if (ifr[0]) return { kind: 'embed', url: ifr[0] };
-  return null;
-}
-async function vResolveCached(e) {
-  const c = vResolved.get(e.id); if (c && Date.now() - c.t < 20 * 60000) return c.r;
-  const r = await vResolveMedia(e.url); vResolved.set(e.id, { t: Date.now(), r }); return r;
-}
-
-/* ----- Lecteur vidéo ----- */
-const vRates = [1, 1.25, 1.5, 2, 0.75];
-async function vWakeOn() { try { if (navigator.wakeLock) vWake = await navigator.wakeLock.request('screen'); } catch {} }
-function vWakeOff() { try { vWake && vWake.release(); } catch {} vWake = null; }
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && vCur && vVideo) vWakeOn(); });
-
-function vTeardown() {
-  if (vVideo) { try { vVideo.pause(); vVideo.removeAttribute('src'); vVideo.load(); } catch {} }
-  if (vHls) { try { vHls.destroy(); } catch {} vHls = null; }
-  if (vBlobUrl) { URL.revokeObjectURL(vBlobUrl); vBlobUrl = null; }
-  vVideo = null; $('#vpStage').innerHTML = '';
-  $('#vplayer').querySelectorAll('.vpHint').forEach(x => x.remove());
-}
-function vSavePos(force) {
-  if (!vVideo || !vCur) return;
-  const now = Date.now(); if (!force && now - vLastSave < 4000) return; vLastSave = now;
-  const t = vVideo.currentTime, d = vVideo.duration;
-  if (!isFinite(t)) return;
-  store.set('vprog:' + vCur.id, Math.floor(t)); if (isFinite(d) && d > 0) store.set('vdur:' + vCur.id, Math.floor(d));
-  if (isFinite(d) && d > 60 && d - t < 45 && !vCur.watched) { vCur.watched = true; idb.putEpisode(vCur).catch(() => {}); }
-}
-function vHint(html) { const h = document.createElement('div'); h.className = 'vpHint'; h.innerHTML = html; $('#vplayer').appendChild(h); return h; }
-
-async function vPlay(e) {
-  if (vCur) vSavePos(true);
-  vTeardown(); vCur = e;
-  $('#vplayer').hidden = false; document.body.style.overflow = 'hidden';
-  $('#vpTitle').textContent = e.title;
-  let kind = e.saved ? 'file' : e.kind, srcUrl = e.url, embedUrl = e.embed || e.url;
-  if (kind === 'page') {
-    const h = vHint('Recherche de la vidéo dans la page…');
-    const r = await vResolveCached(e).catch(() => null); h.remove();
-    if (vCur !== e) return;
-    if (r && r.kind === 'embed') { kind = 'embed'; embedUrl = r.url; } else if (r) { kind = r.kind; srcUrl = r.url; } else kind = 'embed';
-  }
-  const embedMode = kind === 'embed';
-  $('#vpSkip').hidden = $('#vpRate').hidden = embedMode; $('#vpWeb').hidden = e.kind === 'local';
-  const i = vEps.findIndex(x => x.id === e.id);
-  $('#vpPrev').disabled = i <= 0; $('#vpNext').disabled = i < 0 || i >= vEps.length - 1;
-  const st = (await idb.listShows()).find(x => x.id === e.showId);
-  if (st) { st.lastWatchAt = Date.now(); idb.putShow(st).catch(() => {}); }
-  if (embedMode) {
-    const f = document.createElement('iframe');
-    f.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture; encrypted-media'); f.allowFullscreen = true;
-    f.referrerPolicy = 'no-referrer'; f.src = embedUrl;
-    $('#vpStage').appendChild(f);
-    const h = vHint('Si la page reste vide, le site refuse l\'affichage ici. <button type="button" id="vpHintWeb">Ouvrir dans le navigateur</button>');
-    h.querySelector('#vpHintWeb').onclick = () => window.open(e.url, '_blank', 'noopener');
-    setTimeout(() => h.remove(), 9000);
-    return;
-  }
-  const v = document.createElement('video');
-  v.controls = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.setAttribute('webkit-playsinline', ''); v.preload = 'metadata';
-  v.setAttribute('referrerpolicy', 'no-referrer'); v.playbackRate = +store.get('vRate', 1);
-  $('#vpRate').textContent = (+store.get('vRate', 1)) + '×';
-  vVideo = v; $('#vpStage').appendChild(v);
-  let src = null;
-  if (e.saved || e.kind === 'local') { const b = await idb.blob('vid:' + e.id).catch(() => null); if (b) { vBlobUrl = URL.createObjectURL(b); src = vBlobUrl; } }
-  if (!src) { if (e.kind === 'local') { toast('Fichier introuvable sur cet appareil.'); vClose(); return; } src = srcUrl; }
-  v.addEventListener('loadedmetadata', () => { const t = +store.get('vprog:' + e.id, 0); if (t > 5 && v.duration && t < v.duration - 30) v.currentTime = t; });
-  v.addEventListener('timeupdate', () => vSavePos(false));
-  v.addEventListener('pause', () => vSavePos(true));
-  v.addEventListener('ended', vEnded);
-  v.addEventListener('error', () => {
-    const h = vHint(e.saved ? 'Cette vidéo ne peut pas être lue par ton navigateur (format ou codec).' : 'Lecture impossible : lien expiré, serveur qui refuse, ou format non pris en charge. <button type="button" id="vpHintWeb">Ouvrir dans le navigateur</button>');
-    const b = h.querySelector('#vpHintWeb'); if (b) b.onclick = () => window.open(e.url, '_blank', 'noopener');
-  });
-  if (kind === 'hls' && !e.saved) {
-    if (v.canPlayType('application/vnd.apple.mpegurl')) v.src = src;
-    else {
-      try {
-        await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.8/hls.min.js');
-        if (window.Hls && Hls.isSupported()) {
-          vHls = new Hls(); vHls.loadSource(src); vHls.attachMedia(v);
-          vHls.on(Hls.Events.ERROR, (_, d) => { if (d && d.fatal) v.dispatchEvent(new Event('error')); });
-        } else v.src = src;
-      } catch { v.dispatchEvent(new Event('error')); }
-    }
-  } else v.src = src;
-  v.play().catch(() => {});
-  vWakeOn();
-}
-async function vEnded() {
-  if (!vCur) return;
-  const e = vCur; e.watched = true; store.set('vprog:' + e.id, 0); await idb.putEpisode(e).catch(() => {});
-  const i = vEps.findIndex(x => x.id === e.id), nx = vEps[i + 1];
-  if (nx) { toast('Épisode suivant : ' + nx.title); setTimeout(() => { if (vCur === e) vPlay(nx); }, 1200); }
-}
-function vClose() {
-  vSavePos(true); vTeardown(); vWakeOff();
-  $('#vplayer').hidden = true; document.body.style.overflow = ''; vCur = null;
-  if (!$('#view-show').hidden && curShowId) vOpenShow(curShowId);
-  if (!$('#view-vid').hidden) renderVid();
-}
-$('#vpClose').onclick = vClose;
-$('#vpPrev').onclick = () => { const i = vEps.findIndex(x => vCur && x.id === vCur.id); if (i > 0) vPlay(vEps[i - 1]); };
-$('#vpNext').onclick = () => { const i = vEps.findIndex(x => vCur && x.id === vCur.id); if (i >= 0 && i < vEps.length - 1) vPlay(vEps[i + 1]); };
-$('#vpSkip').onclick = () => { if (vVideo) vVideo.currentTime = Math.min((vVideo.duration || 1e9) - 1, vVideo.currentTime + 85); };
-$('#vpRate').onclick = () => {
-  const r = +store.get('vRate', 1), nx = vRates[(vRates.indexOf(r) + 1) % vRates.length];
-  store.set('vRate', nx); $('#vpRate').textContent = nx + '×'; if (vVideo) vVideo.playbackRate = nx;
-};
-$('#vpWeb').onclick = () => { if (vCur && vCur.url) window.open(vCur.url, '_blank', 'noopener'); };
-
 
 try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch {}
 showView('lib');
