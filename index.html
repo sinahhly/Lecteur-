@@ -445,7 +445,7 @@ dialog[open]::backdrop{animation:fadeIn .2s ease}
 <style>
 /* Plein écran iPhone : le contenu passe sous la barre d'état ; voile sombre pour garder l'heure et la batterie lisibles */
 body::before{content:"";position:fixed;top:0;left:0;right:0;height:calc(env(safe-area-inset-top,0px) * .8);z-index:100;pointer-events:none;
-  background:linear-gradient(to bottom,rgba(0,0,0,.3),rgba(0,0,0,0))}
+  background:linear-gradient(to bottom,rgba(0,0,0,.18),rgba(0,0,0,0))}
 </style>
 <style>
 /* Images empilées : recouvrement d'1 px, supprime la fine ligne entre deux images */
@@ -456,6 +456,7 @@ body::before{content:"";position:fixed;top:0;left:0;right:0;height:calc(env(safe
 dialog h3{padding-right:30px}
 /* Bande du bas du lecteur : noire (comme le lecteur) au lieu de la couleur du thème */
 body.lock,html:has(body.lock){background:#000}
+.primary.danger{background:#d9534f;color:#fff}
 /* Barre de progression d'import, visible sur toutes les pages */
 #impBar{position:fixed;left:12px;right:12px;top:calc(env(safe-area-inset-top,0px) + 10px);z-index:70;padding:12px 14px;border-radius:14px;background:var(--carte);color:var(--papier);border:1.5px solid var(--trait);box-shadow:0 8px 24px rgba(0,0,0,.18)}
 #impBar[hidden]{display:none}
@@ -583,7 +584,7 @@ html.sa #pages.mode-h .chDivider,html.sa #pages.mode-single .chDivider,html.sa #
         <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
       </button>
       <div class="menuPop" id="mMenuPop" hidden>
-        <button id="mSetCover" type="button">Changer la couverture (URL)</button>
+        <button id="mSetCover" type="button">Changer la couverture</button>
         <button id="mExportPdf" type="button">Exporter des chapitres en PDF</button>
         <button id="mDelete" type="button">Supprimer ce manga</button>
       </div>
@@ -759,9 +760,19 @@ html.sa #pages.mode-h .chDivider,html.sa #pages.mode-single .chDivider,html.sa #
   </form>
 </dialog>
 
+<dialog id="dlgConfirm" class="sheet">
+  <h3 id="cfTitle">Confirmer</h3>
+  <p id="cfMsg" class="hint"></p>
+  <div class="row">
+    <button type="button" class="ghost" id="cfNo">Annuler</button>
+    <button type="button" class="primary" id="cfYes">Confirmer</button>
+  </div>
+</dialog>
+<input id="coverFile" type="file" accept="image/*" hidden>
+
 <dialog id="dlgImp" class="sheet">
   <form id="impForm" novalidate autocomplete="off">
-    <h3>Importer un PDF</h3>
+    <h3 id="impH">Importer un PDF</h3>
     <p class="hint" id="impFiles"></p>
     <label for="impTitle">Nom du manga, manhwa ou webtoon</label>
     <input id="impTitle" type="text" autocapitalize="words" placeholder="Ex. Solo Leveling">
@@ -772,7 +783,7 @@ html.sa #pages.mode-h .chDivider,html.sa #pages.mode-single .chDivider,html.sa #
       <option value="fr">Français</option><option value="en">English</option><option value="es">Español</option>
       <option value="pt">Português</option><option value="it">Italiano</option><option value="de">Deutsch</option>
     </select>
-    <div class="crow"><span>Webtoon : recoller les pages en une bande continue (retire marges et pied de page)</span><input type="checkbox" id="impWebtoon"></div>
+    <div class="crow" id="impWebRow"><span>Webtoon : recoller les pages en une bande continue (retire marges et pied de page)</span><input type="checkbox" id="impWebtoon"></div>
     <div class="row">
       <button type="button" class="ghost" id="impCancel">Annuler</button>
       <button class="primary" type="submit" id="impOk">Importer</button>
@@ -1414,22 +1425,135 @@ async function translateDesc(text, to) {
   }
   return out.join(' ');
 }
-async function attachCoverIfMissing(manga, lang) {
-  if (!manga || manga.coverType) return;
-  const info = await fetchCoverFromAniList(manga.title);
-  if (!info) return;
-  if (info.cover) {
-    try { await idb.putBlob('cover:' + manga.id, await fetchBlob(info.cover)); manga.coverType = 'blob'; }
-    catch { manga.coverType = 'url'; manga.coverUrl = info.cover; }
+const cutDesc = d => {
+  const c = d.slice(0, 600), k = Math.max(c.lastIndexOf('. '), c.lastIndexOf('! '), c.lastIndexOf('? '));
+  return k > 200 ? c.slice(0, k + 1) : c;
+};
+/* AniList : couverture, résumé (anglais), genres, étiquettes, pays d'origine (donne manga / manhwa / manhua) */
+async function fetchAniMeta(title) {
+  try {
+    const query = 'query($s:String){Media(search:$s,type:MANGA){coverImage{extraLarge large}description(asHtml:false)genres tags{name rank isMediaSpoiler}countryOfOrigin}}';
+    const r = await fetch('https://graphql.anilist.co', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ query, variables: { s: title } })
+    });
+    if (!r.ok) return null;
+    const j = await r.json(), m = j && j.data && j.data.Media;
+    if (!m) return null;
+    return {
+      cover: m.coverImage && (m.coverImage.extraLarge || m.coverImage.large),
+      description: m.description ? m.description.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim() : null,
+      genres: m.genres || [], tags: m.tags || [], country: m.countryOfOrigin
+    };
+  } catch { return null; }
+}
+/* MangaDex : résumé déjà écrit dans la langue demandée (quand il existe) + couverture */
+async function fetchMangaDex(title, lang) {
+  try {
+    const r = await fetch('https://api.mangadex.org/manga?limit=5&includes[]=cover_art&title=' + encodeURIComponent(title));
+    if (!r.ok) return null;
+    const j = await r.json(), t = norm(title);
+    const hit = (j.data || []).find(x => {
+      const a = x.attributes || {};
+      const names = [a.title].concat(a.altTitles || []).flatMap(o => Object.values(o || {}));
+      return names.some(n => { const z = norm(n); return z && (z === t || (z.length > 4 && t.length > 4 && (z.includes(t) || t.includes(z)))); });
+    });
+    if (!hit) return null;
+    const d = (hit.attributes.description || {})[lang];
+    const art = (hit.relationships || []).find(x => x.type === 'cover_art');
+    const file = art && art.attributes && art.attributes.fileName;
+    return {
+      description: d ? d.split(/\r?\n[-*_]{3,}/)[0].replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/\s+/g, ' ').trim().slice(0, 700) : null,
+      cover: file ? 'https://uploads.mangadex.org/covers/' + hit.id + '/' + file + '.512.jpg' : null
+    };
+  } catch { return null; }
+}
+const TAG_FR = {
+  'Action':'Action','Adventure':'Aventure','Comedy':'Comédie','Drama':'Drame','Ecchi':'Ecchi','Fantasy':'Fantasy','Horror':'Horreur',
+  'Mahou Shoujo':'Magical girl','Mecha':'Mecha','Music':'Musique','Mystery':'Mystère','Psychological':'Psychologique','Romance':'Romance',
+  'Sci-Fi':'Science-fiction','Slice of Life':'Tranche de vie','Sports':'Sport','Supernatural':'Surnaturel','Thriller':'Thriller',
+  'Reincarnation':'Réincarnation','Time Loop':'Boucle temporelle','Time Manipulation':'Manipulation du temps','Villainess':'Méchante',
+  'Isekai':'Isekai','Royalty':'Royauté','Nobility':'Noblesse','Politics':'Politique','Female Protagonist':'Héroïne','Male Protagonist':'Héros',
+  'Tragedy':'Tragédie','Revenge':'Vengeance','Marriage':'Mariage','Arranged Marriage':'Mariage arrangé','Anti-Hero':'Anti-héros','Magic':'Magie',
+  'War':'Guerre','Age Gap':'Écart d\'âge','Love Triangle':'Triangle amoureux','Enemies to Lovers':'Ennemis devenus amants','Cohabitation':'Cohabitation',
+  'Workplace':'Monde du travail','Body Swapping':'Échange de corps','Cultivation':'Cultivation','Martial Arts':'Arts martiaux','Gore':'Gore',
+  'Survival':'Survie','Video Games':'Jeux vidéo','Dungeon':'Donjon','Tower Climbing':'Ascension de tour','Alchemy':'Alchimie','Dragons':'Dragons',
+  'Crime':'Crime','Detective':'Enquête','Amnesia':'Amnésie','Pregnancy':'Grossesse','Childhood Friends':'Amis d\'enfance','Historical':'Historique',
+  'Primarily Adult Cast':'Personnages adultes','Primarily Female Cast':'Personnages surtout féminins','Primarily Male Cast':'Personnages surtout masculins',
+  'Kingdom Management':'Gestion de royaume','Swordplay':'Combat à l\'épée','Death Game':'Jeu de la mort','Curses':'Malédictions',
+  'Shounen':'Shōnen','Shoujo':'Shōjo','Seinen':'Seinen','Josei':'Josei','Space':'Espace','Vampire':'Vampires','Witch':'Sorcières','Demons':'Démons',
+  'Ghost':'Fantômes','Parenthood':'Parentalité','Family Life':'Vie de famille','Disability':'Handicap','Maids':'Servantes','Slow Pace?':''
+};
+function tagList(al, lang) {
+  const out = [], seen = new Set();
+  const add = n => { const v = lang === 'fr' ? TAG_FR[n] : n; if (v && !seen.has(v)) { seen.add(v); out.push({ n: v, local: true }); } };
+  (al.genres || []).forEach(add);
+  (al.tags || []).filter(t => !t.isMediaSpoiler && t.rank >= 55).sort((a, b) => b.rank - a.rank).forEach(t => add(t.name));
+  return out.slice(0, 8);
+}
+/* Couvertures de secours : 1re page du chapitre, ou image de couleur avec le titre */
+async function coverFromBlob(blob) {
+  const bmp = await createImageBitmap(blob);
+  const W = 400, H = 600, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, W, H);
+  let sw = bmp.width, sh = sw * H / W;
+  if (sh > bmp.height) { sh = bmp.height; sw = sh * W / H; }
+  x.drawImage(bmp, 0, 0, sw, sh, 0, 0, W, H);
+  if (bmp.close) bmp.close();
+  const out = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.85)); c.width = 0; c.height = 0;
+  if (!out) throw new Error('couverture'); return out;
+}
+async function placeholderCover(title) {
+  const W = 400, H = 600, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const x = c.getContext('2d'), g = x.createLinearGradient(0, 0, W, H);
+  g.addColorStop(0, '#f4b6cf'); g.addColorStop(1, '#a99be6'); x.fillStyle = g; x.fillRect(0, 0, W, H);
+  x.fillStyle = '#fff'; x.textAlign = 'center'; x.font = '700 38px "Zen Maru Gothic", system-ui, sans-serif';
+  const lines = []; let cur = '';
+  for (const w of (title || '').split(/\s+/)) { const t = cur ? cur + ' ' + w : w; if (x.measureText(t).width > W - 60 && cur) { lines.push(cur); cur = w; } else cur = t; }
+  if (cur) lines.push(cur);
+  const shown = lines.slice(0, 6), y0 = H / 2 - (shown.length - 1) * 24;
+  shown.forEach((l, i) => x.fillText(l, W / 2, y0 + i * 48));
+  const out = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.9)); c.width = 0; c.height = 0;
+  if (!out) throw new Error('couverture'); return out;
+}
+async function scaledBlob(blob, maxW) {
+  const bmp = await createImageBitmap(blob);
+  if (bmp.width <= maxW) { if (bmp.close) bmp.close(); return blob; }
+  const k = maxW / bmp.width, c = document.createElement('canvas'); c.width = maxW; c.height = Math.round(bmp.height * k);
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height); if (bmp.close) bmp.close();
+  const out = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.88)); c.width = 0; c.height = 0;
+  return out || blob;
+}
+async function attachCoverIfMissing(manga, lang, firstBlob) {
+  if (!manga) return;
+  const needCover = !manga.coverType, needDesc = !manga.description, needTags = !(manga.genres && manga.genres.length);
+  if (!needCover && !needDesc && !needTags && manga.kind) return;
+  const [al, md] = await Promise.all([fetchAniMeta(manga.title), (lang && lang !== 'en') ? fetchMangaDex(manga.title, lang) : null]);
+  let changed = false;
+  if (needCover) {
+    const url = (al && al.cover) || (md && md.cover);
+    if (url) {
+      try { await idb.putBlob('cover:' + manga.id, await fetchBlob(url)); manga.coverType = 'blob'; changed = true; }
+      catch { manga.coverType = 'url'; manga.coverUrl = url; changed = true; }
+    }
+    if (!manga.coverType) {
+      try { await idb.putBlob('cover:' + manga.id, firstBlob ? await coverFromBlob(firstBlob) : await placeholderCover(manga.title)); manga.coverType = 'blob'; changed = true; } catch {}
+    }
   }
-  if (info.description && !manga.description) {
-    let d = info.description.slice(0, 600);
-    const k = Math.max(d.lastIndexOf('. '), d.lastIndexOf('! '), d.lastIndexOf('? '));
-    if (k > 200) d = d.slice(0, k + 1);
-    if (lang && lang !== 'en') { try { d = await translateDesc(d, lang); } catch {} }
-    manga.description = d;
+  if (needDesc) {
+    let d = md && md.description;
+    if (!d && al && al.description) {
+      d = cutDesc(al.description);
+      if (lang && lang !== 'en') { try { d = await translateDesc(d, lang); } catch {} }
+    }
+    if (d) { manga.description = d; changed = true; }
   }
-  if (manga.coverType || manga.description) await idb.putManga(manga);
+  if (needTags && al) { const g = tagList(al, lang); if (g.length) { manga.genres = g; changed = true; } }
+  if (!manga.kind && al && al.country) {
+    const k = { JP: 'Manga', KR: 'Manhwa', CN: 'Manhua', TW: 'Manhua', HK: 'Manhua' }[al.country];
+    if (k) { manga.kind = k; changed = true; }
+  }
+  if (changed) await idb.putManga(manga);
 }
 
 /* ---------- Sites : catalogue, recherche, fiche manga ---------- */
@@ -2032,8 +2156,8 @@ function srcRow(src) {
   pin.setAttribute('aria-label', src.pinned ? 'Désépingler' : 'Épingler');
   pin.onclick = () => { src.pinned = !src.pinned; saveSource(src); renderSources(); };
   row.querySelector('.open').onclick = () => openSource(src);
-  row.querySelector('.del').onclick = () => {
-    if (!confirm('Retirer « ' + src.host + ' » de tes sources ? Les mangas déjà dans ta bibliothèque restent.')) return;
+  row.querySelector('.del').onclick = async () => {
+    if (!await uiConfirm('Les mangas déjà dans ta bibliothèque restent.', { title: 'Retirer « ' + src.host + ' » de tes sources ?', ok: 'Retirer', danger: true })) return;
     srcs.save(srcs.list().filter(x => x.id !== src.id)); renderSources();
   };
   return row;
@@ -2191,11 +2315,12 @@ async function openManga(id) {
   } else badge.hidden = true;
   const KINDS = ['Manga', 'Manhwa', 'Manhua', 'Webtoon'];
   const kindBtn = $('#mKind');
-  kindBtn.textContent = m.kind || 'Webtoon';
+  const paintKind = () => { kindBtn.textContent = m.kind || 'Webtoon'; $('#mDelete').textContent = 'Supprimer ce ' + (m.kind || 'Webtoon').toLowerCase(); };
+  paintKind();
   kindBtn.onclick = async () => {
     const i = KINDS.indexOf(m.kind || 'Webtoon');
     m.kind = KINDS[(i + 1) % KINDS.length];
-    kindBtn.textContent = m.kind;
+    paintKind();
     await idb.putManga(m);
   };
   $('#mUrl').textContent = m.seriesUrl || m.sourceUrl || '';
@@ -2213,7 +2338,7 @@ async function openManga(id) {
   const tags = $('#mTags'); tags.innerHTML = '';
   (m.genres || []).forEach(g => {
     const b = document.createElement('button'); b.type = 'button'; b.className = 'tag'; b.textContent = g.n;
-    b.onclick = () => openTag(m, g);
+    if (!g.local) b.onclick = () => openTag(m, g);
     tags.appendChild(b);
   });
   tags.hidden = !(m.genres && m.genres.length);
@@ -2301,25 +2426,23 @@ $('#mMenuBtn').onclick = () => { $('#mMenuPop').hidden = !$('#mMenuPop').hidden;
 document.addEventListener('click', e => {
   if (!e.target.closest('.mMenu')) { $('#mMenuPop').hidden = true; $('#mDlPop').hidden = true; }
 });
-$('#mSetCover').onclick = async () => {
-  $('#mMenuPop').hidden = true;
-  const url = prompt('Lien de l\'image de couverture');
-  if (!url) return;
-  const mangas = await idb.listMangas();
-  const m = mangas.find(x => x.id === curMangaId);
+$('#mSetCover').onclick = () => { $('#mMenuPop').hidden = true; $('#coverFile').click(); };
+$('#coverFile').addEventListener('change', async e => {
+  const f = e.target.files && e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  const m = (await idb.listMangas()).find(x => x.id === curMangaId);
   if (!m) return;
   try {
-    const b = await fetchBlob(url);
-    await idb.putBlob('cover:' + m.id, b);
-    m.coverType = 'blob'; await idb.putManga(m);
-  } catch { m.coverType = 'url'; m.coverUrl = url; await idb.putManga(m); }
-  openManga(curMangaId);
-};
+    await idb.putBlob('cover:' + m.id, await scaledBlob(f, 800));
+    m.coverType = 'blob'; delete m.coverUrl; await idb.putManga(m);
+    openManga(curMangaId); toast('Couverture mise à jour.');
+  } catch { toast('Impossible d\'enregistrer cette image. Il n\'y a peut-être plus assez de place.'); }
+});
 $('#mDelete').onclick = async () => {
   $('#mMenuPop').hidden = true;
   const mangas = await idb.listMangas();
   const m = mangas.find(x => x.id === curMangaId);
-  if (!m || !confirm('Supprimer « ' + m.title + ' » et tous ses chapitres téléchargés ?')) return;
+  if (!m || !await uiConfirm('Tous ses chapitres téléchargés seront aussi supprimés.', { title: 'Supprimer « ' + m.title + ' » ?', ok: 'Supprimer', danger: true })) return;
   const chapters = (await idb.listChapters()).filter(c => c.mangaId === m.id);
   for (const c of chapters) await idb.delChapter(c);
   await idb.delBlob('cover:' + m.id).catch(() => {});
@@ -2418,7 +2541,7 @@ async function removeDownload(c) {
 }
 async function tapDownload(c) {
   if (dlProg.has(c.id) && !dlProg.get(c.id).wait) return;
-  if (isAllSaved(c)) { if (confirm('Supprimer le téléchargement de « ' + c.title + ' » ?')) await removeDownload(c); return; }
+  if (isAllSaved(c)) { if (await uiConfirm('Le chapitre pourra être retéléchargé plus tard.', { title: 'Supprimer le téléchargement de « ' + c.title + ' » ?', ok: 'Supprimer', danger: true })) await removeDownload(c); return; }
   const r = await downloadChapter(c);
   if (r === 'ok') toast(c.title + ' téléchargé.');
   else if (r === 'partial') toast('Certaines pages n\'ont pas pu être téléchargées. Réessaie, ou renseigne un proxy dans les réglages.');
@@ -2461,7 +2584,7 @@ function rowMenu(c) {
   };
   $('#rowDel').onclick = async () => {
     dlgRow.close();
-    if (!confirm('Supprimer « ' + c.title + ' » (et ses pages hors ligne) ?')) return;
+    if (!await uiConfirm('Ses pages hors ligne seront aussi supprimées.', { title: 'Supprimer « ' + c.title + ' » ?', ok: 'Supprimer', danger: true })) return;
     await idb.delChapter(c); openManga(curMangaId);
   };
   dlgRow.showModal();
@@ -3068,20 +3191,18 @@ $('#files').addEventListener('change', async e => {
   const fs = [...e.target.files].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
   e.target.value = '';
   if (!fs.length) return;
-  const mangaTitleRaw = prompt('Nom du manga, manhwa ou webtoon', '');
-  if (mangaTitleRaw === null) return;
-  const mangaTitle = mangaTitleRaw.trim() || 'Sans titre';
-  const suggestion = await suggestNextChapterLabel(mangaTitle, '');
-  const chapterLabel = prompt('Numéro du chapitre ou du tome (ex. « Chapitre 7 », « Tome 2 »)', suggestion);
-  if (chapterLabel === null) return;
-  const info = labelToChapterInfo(chapterLabel, 'Images de l\'appareil');
+  const ans = await askImport({ heading: 'Importer des images', filesLabel: fs.length + ' image' + (fs.length > 1 ? 's seront réunies' : ' sera ajoutée') + ' dans un seul chapitre.',
+    title: '', chapter: await suggestNextChapterLabel('', ''), lang: cfg.target || 'fr', noWebtoon: true });
+  if (!ans) return;
+  const mangaTitle = ans.title || 'Sans titre';
+  const info = labelToChapterInfo(ans.chapter, 'Images de l\'appareil');
   const manga = await resolveManga(mangaTitle, '', null, null);
   const ch = { id: newId(), mangaId: manga.id, title: info.title || 'Images de l\'appareil', num: info.num,
     source: 'local:' + Date.now(), added: Date.now(), read: false, pages: fs.map(() => ({ url: null, saved: true })) };
   say('Enregistrement des images…');
   try {
     for (let i = 0; i < fs.length; i++) await idb.putBlob(ch.id + ':' + i, fs[i]);
-    await idb.putChapter(ch); await attachCoverIfMissing(manga); say(''); curMangaId = manga.id; openChapter(ch);
+    await idb.putChapter(ch); await attachCoverIfMissing(manga, ans.lang, fs[0]); say(''); curMangaId = manga.id; openChapter(ch);
   } catch { say('Impossible d\'enregistrer ces images. Il n\'y a peut-être plus assez de place sur l\'appareil.', true); }
 });
 
@@ -3106,8 +3227,10 @@ async function pdfToImageBlobs(file, onProgress) {
     await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
     const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.85));
     if (blob) out.push(blob);
+    canvas.width = 0; canvas.height = 0; page.cleanup(); if (i % 8 === 0) doc.cleanup();
     if (onProgress) onProgress(i, doc.numPages);
   }
+  try { await doc.destroy(); } catch {}
   return out;
 }
 
@@ -3173,12 +3296,31 @@ async function pdfToWebtoonBlobs(files, onProgress) {
           }
         }
       }
-      cv.width = 0; cv.height = 0;
+      cv.width = 0; cv.height = 0; page.cleanup(); if (p % 8 === 0) doc.cleanup();
       if (onProgress) onProgress(f, files.length, p, doc.numPages);
     }
+    try { await doc.destroy(); } catch {}
   }
   await flush();
   return out;
+}
+
+
+/* Fenêtre de confirmation au style de l'app (remplace confirm()) */
+function uiConfirm(msg, opts) {
+  opts = opts || {};
+  return new Promise(res => {
+    const d = $('#dlgConfirm'); let done = false;
+    $('#cfTitle').textContent = opts.title || 'Confirmer';
+    $('#cfMsg').textContent = msg;
+    const yes = $('#cfYes'); yes.textContent = opts.ok || 'Confirmer'; yes.classList.toggle('danger', !!opts.danger);
+    const onClose = () => { if (!done) { done = true; res(false); } };
+    const fin = v => { if (done) return; done = true; d.removeEventListener('close', onClose); d.close(); res(v); };
+    $('#cfNo').onclick = () => fin(false);
+    yes.onclick = () => fin(true);
+    d.addEventListener('close', onClose);
+    d.showModal();
+  });
 }
 
 /* Barre de progression d'import (visible sur toutes les pages) */
@@ -3202,6 +3344,7 @@ const imp = (() => {
 function askImport(def) {
   return new Promise(res => {
     const d = $('#dlgImp'); let done = false;
+    $('#impH').textContent = def.heading || 'Importer un PDF'; $('#impWebRow').hidden = !!def.noWebtoon;
     $('#impFiles').textContent = def.filesLabel;
     $('#impTitle').value = def.title; $('#impChap').value = def.chapter;
     $('#impLang').value = def.lang; $('#impWebtoon').checked = def.webtoon;
@@ -3279,7 +3422,7 @@ $('#pdfFile').addEventListener('change', async e => {
     } catch (e) { for (let j = 0; j < blobs.length; j++) await idb.delBlob(ch.id + ':' + j).catch(() => {}); throw e; }
     await idb.putChapter(ch);
     imp.show('Recherche de la couverture et de la description…', 1);
-    await attachCoverIfMissing(manga, lang); say('');
+    await attachCoverIfMissing(manga, lang, blobs[0]); say('');
     toast('« ' + manga.title + ' » — ' + ch.title + ' importé et ajouté à la bibliothèque.');
     curMangaId = manga.id; openChapter(ch);
   } catch (err) {
@@ -3654,7 +3797,10 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
       if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) d.close();
     });
   });
-  if (navigator.standalone) {
+  var isApp = navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+  var setForm = document.querySelector('#dlgSet form');
+  if (setForm) setForm.insertAdjacentHTML('afterbegin', '<p class="hint">Affichage actuel : ' + (isApp ? 'app installée (plein écran).' : 'dans Safari (la barre du bas ne peut pas être retirée ; ouvre l\'app depuis son icône).') + '</p>');
+  if (isApp) {
     document.documentElement.classList.add('sa');
     var els = ['reader', 'dim'].map(function (id) { return document.getElementById(id); }).filter(Boolean);
     var fit = function () {
