@@ -105,8 +105,9 @@ a{color:var(--encre-t)}
 .search-wrap{padding:0 16px 8px}
 .search-wrap input{width:100%;height:44px;padding:0 14px;border-radius:12px;background:var(--carte);
   border:1.5px solid var(--trait);color:var(--papier)}
-#grid,.cgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px 10px;padding:4px 16px}
-.card{display:flex;flex-direction:column;text-align:left;position:relative}
+#grid,.cgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 10px;padding:4px 16px;align-items:start}
+.card{display:flex;flex-direction:column;text-align:left;position:relative;min-width:0;width:100%}
+.card .cover{width:100%}
 .cover{position:relative;aspect-ratio:2/3;border-radius:10px;overflow:hidden;background:linear-gradient(160deg,var(--carte),var(--nuit));
   display:flex;align-items:center;justify-content:center;border:1px solid var(--trait)}
 .cover img{width:100%;height:100%;object-fit:cover;display:block}
@@ -1236,9 +1237,10 @@ async function tryFetch(urls, kind) {
 }
 const fetchText = u => tryFetch([u].concat(proxyChain(u)), 'text');
 /* Dernier recours pour les images protégées contre l'affichage depuis un autre site (hotlink) */
-const imgRelay = u => 'https://wsrv.nl/?url=' + encodeURIComponent(u);
+const imgRelays = u => ['https://wsrv.nl/?url=' + encodeURIComponent(u), 'https://i0.wp.com/' + u.replace(/^https?:\/\//i, '') + '?ssl=1'];
+const imgRelay = u => imgRelays(u)[0];
 async function fetchBlob(u) {
-  const b = await tryFetch([u].concat(proxyChain(u), /^https?:/i.test(u) ? [imgRelay(u)] : []), 'blob');
+  const b = await tryFetch([u].concat(proxyChain(u), /^https?:/i.test(u) ? imgRelays(u) : []), 'blob');
   if (!b.size || (b.type && !/^image\//.test(b.type) && b.type !== 'application/octet-stream')) throw new Error('Ce fichier n\'est pas une image');
   return b;
 }
@@ -1397,7 +1399,6 @@ function findChapterLinks(doc, base, seriesUrl, opts) {
   /* Numéro délirant (identifiant, date…) et aucun autre numéro valable : ce n'est pas un chapitre */
   out = out.filter(l => chapLabel(l).num != null || !(parseUnit(l.text || '') || parseUnit(pathOf(l.url))));
   out.forEach((l, i) => { const c = chapLabel(l); l._n = c.num; l._r = i; l._u = unitRank(c.label); });
-  { const bad = ghostFractions(out.map(l => l._n)); out.forEach(l => { l._n = stripGhost(l._n, bad); }); }
   /* Si la page liste du plus récent au plus ancien, l'ordre de la page sert de repli quand le numéro manque */
   out.sort((a, b) => a._u - b._u || (a._n ?? Infinity) - (b._n ?? Infinity) || b._r - a._r);
   out.forEach(l => { delete l._n; delete l._r; delete l._u; });
@@ -2042,11 +2043,40 @@ async function fetchSeries(url, opts) {
   if (be) { try { base = new URL(be.getAttribute('href'), url).href; } catch {} }
   const det = parseSeriesDoc(doc, base, url);
   if (!det.chapters.length && /wp-manga|manga-chapters-holder|madara/i.test(html)) det.chapters = await madaraChapters(url);
+  det.chapters = completeChapters(det.chapters, html, doc);
   det.valid = opts && (opts.title || opts.slug) ? seriesValid(det, doc, url, opts.title, opts.slug) : true;
   return det;
 }
+/* Beaucoup de sites n'affichent que les derniers chapitres dans la page (« Show All »). Le nombre total est annoncé : on complète. */
+function declaredCount(doc) {
+  let best = 0, m; const re = /\bChap(?:ter|itre)s\s*\(?\s*(\d{1,4})\b/gi, t = doc.body ? doc.body.textContent : '';
+  while ((m = re.exec(t))) best = Math.max(best, +m[1]);
+  return best;
+}
+function completeChapters(chs, html, doc) {
+  const want = declaredCount(doc);
+  if (!want || !chs.length || chs.length >= want) return chs;
+  const sample = chs[0].url, pat = /(chapter-)\d+(?:\.\d+)?/i;
+  if (!pat.test(sample)) return chs;
+  const mk = n => ({ url: sample.replace(pat, '$1' + n), text: 'Chapitre ' + n, _n: n, _r: 0, _u: 0 });
+  const have = new Set(chs.map(l => chapterNumFromUrl(l.url)));
+  const t = html.replace(/\\u002F/gi, '/').replace(/\\\//g, '/').replace(/\\"/g, '"');
+  const re = /chapter-(\d{1,4}(?:\.\d{1,2})?)(?![\d.])/gi, add = []; let m;
+  while ((m = re.exec(t))) { const n = parseFloat(m[1]); if (!have.has(n)) { have.add(n); add.push(n); } }
+  const reN = /"(?:chapter_?[nN]umber|chapterNum|number)"\s*:\s*"?(\d{1,4}(?:\.\d{1,2})?)"?/g;
+  const addN = []; while ((m = reN.exec(t))) { const n = parseFloat(m[1]); if (!have.has(n)) { have.add(n); addN.push(n); } }
+  let out = chs.concat(add.map(mk));
+  if (out.length < want && out.length + addN.length <= want + 2) out = out.concat(addN.map(mk));
+  if (out.length > want + 2) out = chs;                       // données douteuses : on ne touche à rien
+  if (out.length < want) {                                    // dernier recours : numéros entiers manquants
+    const max = Math.max(...[...have].filter(n => n != null)), gaps = [];
+    for (let i = 0; i <= max; i++) if (!have.has(i)) gaps.push(i);
+    if (out.length + gaps.length <= want + 2) out = out.concat(gaps.map(mk));
+  }
+  return out;
+}
 function chapLabel(l) {
-  const u = parseUnit(l.text || '') || parseUnit(pathOf(l.url));
+  const u = parseUnit(pathOf(l.url)) || parseUnit(l.text || '');   // l'adresse est fiable ; le texte peut coller la date au numéro
   if (u && sane(u.num) != null) return { label: KIND_LABEL[u.kind] + ' ' + u.numText, num: u.num };
   const n = chapterNumFromUrl(l.url);
   return { label: n != null ? 'Chapitre ' + n : (l.text || 'Chapitre'), num: n };
@@ -2057,8 +2087,7 @@ async function mergeChapters(m, links, via) {
   const have = new Set(mine.map(c => nk(c.source)));
   const bySrc = new Map(mine.map(c => [nk(c.source), c]));
   const fix = [];
-  const bad = ghostFractions(links.map(l => chapLabel(l).num));
-  const lab = l => { let { label, num } = chapLabel(l); const n2 = stripGhost(num, bad); if (n2 !== num) { label = stripGhostLabel(label); num = n2; } return { label, num }; };
+  const lab = chapLabel;
   for (const l of links) {
     const ex = bySrc.get(nk(l.url));
     if (!ex || !/^(?:Chapitre|Épisode|Volume|Tome|Chapter) /i.test(ex.title || '')) continue;
@@ -2635,8 +2664,12 @@ async function openManga(id) {
   if (!m) { showView('lib'); return; }
   const chs = (chapters || []).filter(c => c.mangaId === id);
   { /* Répare automatiquement les numéros erronés des chapitres déjà ajoutés */
-    const bad = ghostFractions(chs.map(c => c.num)), fixed = [];
-    if (bad.size) chs.forEach(c => { const n2 = stripGhost(c.num, bad); if (n2 !== c.num) { c.num = n2; c.title = stripGhostLabel(c.title); fixed.push(c); } });
+    const fixed = [];
+    chs.forEach(c => {
+      if (!c.source || !/^(?:Chapitre|Épisode|Volume|Tome|Chapter) /i.test(c.title || '')) return;
+      const u = parseUnit(pathOf(c.source));
+      if (u && sane(u.num) != null && u.num !== c.num) { c.num = u.num; c.title = KIND_LABEL[u.kind] + ' ' + u.numText; fixed.push(c); }
+    });
     if (fixed.length) idb.putChapters(fixed);
   }
   chs.sort(byChapter);
@@ -2944,12 +2977,14 @@ async function buildPage(p, i, chId) {
   }
   img.onload = () => fig.classList.add('ok');
   img.onerror = async () => {
-    if (img.dataset.retry || !p.url) { fig.classList.add('bad'); return; }
-    img.dataset.retry = '1';
-    try {
-      const b = await fetchBlob(p.url);
-      const u = URL.createObjectURL(b); objUrls.push(u); img.src = u;
-    } catch { img.src = imgRelay(p.url); }
+    const n = +(img.dataset.retry || 0);
+    if (n >= 3 || !p.url) { fig.classList.add('bad'); return; }
+    img.dataset.retry = String(n + 1);
+    if (n === 0) {
+      try { const b = await fetchBlob(p.url); const u = URL.createObjectURL(b); objUrls.push(u); img.src = u; }
+      catch { img.src = imgRelays(p.url)[0]; }
+    } else if (n === 1) img.src = imgRelays(p.url)[0];
+    else img.src = imgRelays(p.url)[1];
   };
   if (src) img.src = src; else fig.classList.add('bad');
 
@@ -2963,7 +2998,7 @@ async function buildPage(p, i, chId) {
   tr.onclick = e => { e.stopPropagation(); translatePage(fig, i, tr, p, chId); };
   if (p.url) {
     const again = document.createElement('button'); again.type = 'button'; again.textContent = 'Réessayer';
-    again.onclick = e => { e.stopPropagation(); fig.classList.remove('bad'); img.dataset.retry = '1'; img.src = imgRelay(p.url) + '&_=' + Date.now(); };
+    again.onclick = e => { e.stopPropagation(); fig.classList.remove('bad'); img.dataset.retry = '2'; img.src = imgRelays(p.url)[0] + '&_=' + Date.now(); };
     broken.appendChild(again);
   }
   fig.append(img, broken, ov, tr);
