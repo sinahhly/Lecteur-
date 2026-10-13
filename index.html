@@ -1873,22 +1873,23 @@ function findSearchTemplate(doc, base) {
 
 function catalogCandidates(doc, base) {
   const origin = new URL(base).origin, seen = new Set([base]), scored = [];
-  const KW = /catalog|liste|list|manga|manhwa|manhua|webtoon|series|comics|projet|project|tous|bibliotheque|library|anime|drama|film|movie|video|streaming|dorama/i;
+  const KW = /catalog|liste|list|manga|manhwa|manhua|webtoon|series|comics|projet|project|tous|bibliotheque|library|anime|drama|film|movie|video|streaming|dorama|scan|lecture|bd\b/i;
+  const KM = /scan|manga|manhwa|manhua|webtoon|comics?|lecture|bd\b|bande/i;   // rubriques de lecture : passent avant les animés
   doc.querySelectorAll('a[href]').forEach(a => {
     let u; try { u = new URL(a.getAttribute('href'), base); } catch { return; }
     u.hash = ''; u.search = '';
     if (u.origin !== origin || CH_LINK_RE.test(u.pathname) || NOT_SERIES.test(u.pathname)) return;
     if (u.pathname.split('/').filter(Boolean).length !== 1 || seen.has(u.href)) return;
     const t = clean(a.textContent), kt = KW.test(t), kp = KW.test(u.pathname);
-    if (kt || kp) { seen.add(u.href); scored.push({ h: u.href, s: (kt ? 2 : 0) + (kp ? 1 : 0) }); }
+    if (kt || kp) { seen.add(u.href); scored.push({ h: u.href, s: (kt ? 2 : 0) + (kp ? 1 : 0) + (KM.test(t) ? 6 : 0) + (KM.test(u.pathname) ? 4 : 0) }); }
   });
   scored.sort((a, b) => b.s - a.s);
-  const out = scored.slice(0, 3).map(x => x.h);
-  ['catalogue', 'manga', 'mangas', 'series', 'liste-manga', 'manga-list', 'comics', 'webtoons', 'manhwa', 'anime', 'animes', 'drama', 'dramas', 'kdrama', 'films', 'movies', 'liste-animes', 'catalogue-animes'].forEach(p => {
+  const out = scored.slice(0, 5).map(x => x.h);
+  ['scan', 'scans', 'manhwa', 'manhua', 'webtoons', 'scan-manga', 'catalogue', 'manga', 'mangas', 'series', 'liste-manga', 'manga-list', 'comics', 'webtoons', 'manhwa', 'anime', 'animes', 'drama', 'dramas', 'kdrama', 'films', 'movies', 'liste-animes', 'catalogue-animes'].forEach(p => {
     const h = origin + '/' + p + '/';
     if (!out.includes(h) && !seen.has(h)) out.push(h);
   });
-  return out.slice(0, 7);
+  return out.slice(0, 10);
 }
 
 /* Ajouter un site : trouve le catalogue et la recherche */
