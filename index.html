@@ -786,6 +786,9 @@ html.sa #pages.mode-h .chDivider,html.sa #pages.mode-single .chDivider,html.sa #
     <label for="setProxy">Proxy pour lire les pages (facultatif)</label>
     <input id="setProxy" type="text" spellcheck="false" autocapitalize="off">
     <p>Certains sites refusent qu'une page web lise leur contenu. Le proxy sert d'intermédiaire, mais les liens passent alors par ce service. Laisse vide pour ne pas en utiliser.</p>
+    <label for="setImgProxy">Serveur d'images (facultatif)</label>
+    <input id="setImgProxy" type="text" spellcheck="false" autocapitalize="off" placeholder="http://192.168.1.25:8787/?key=…&url=">
+    <p>Sert uniquement pour les images (lecture et téléchargement), quand un site les bloque. Les pages continuent de passer par le proxy ci-dessus.</p>
     <label for="setLang">Langue d'origine pour la traduction</label>
     <select id="setLang">
       <option value="kor">Coréen (webtoon)</option>
@@ -1011,6 +1014,7 @@ const store = {
 };
 const cfg = {
   proxy: store.get('proxy', 'https://api.allorigins.win/raw?url='),
+  imgProxy: store.get('imgProxy', ''),
   lang: store.get('lang', 'kor'),
   target: store.get('target', 'fr'),
   mtEmail: store.get('mtEmail', ''),
@@ -1240,7 +1244,8 @@ const fetchText = u => tryFetch([u].concat(proxyChain(u)), 'text');
 const imgRelays = u => ['https://wsrv.nl/?url=' + encodeURIComponent(u), 'https://i0.wp.com/' + u.replace(/^https?:\/\//i, '') + '?ssl=1'];
 const imgRelay = u => imgRelays(u)[0];
 async function fetchBlob(u) {
-  const b = await tryFetch([u].concat(proxyChain(u), /^https?:/i.test(u) ? imgRelays(u) : []), 'blob');
+  const own = cfg.imgProxy && /^https?:/i.test(u) ? [cfg.imgProxy + encodeURIComponent(u)] : [];
+  const b = await tryFetch(own.concat([u], proxyChain(u), /^https?:/i.test(u) ? imgRelays(u) : []), 'blob');
   if (!b.size || (b.type && !/^image\//.test(b.type) && b.type !== 'application/octet-stream')) throw new Error('Ce fichier n\'est pas une image');
   return b;
 }
@@ -4380,7 +4385,7 @@ $('#fab').onclick = $('#emptyAdd').onclick = () => openAdd();
 /* ---------- Réglages ---------- */
 const dlgSet = $('#dlgSet');
 function openSettings() {
-  $('#setProxy').value = cfg.proxy; $('#setLang').value = cfg.lang; $('#setTarget').value = cfg.target; $('#setMtEmail').value = cfg.mtEmail || ''; $('#setSbar').value = store.get('sbar', 'black'); $('#setDoc').value = store.get('docscroll', '1'); syncThemeUI();
+  $('#setProxy').value = cfg.proxy; $('#setImgProxy').value = cfg.imgProxy || ''; $('#setLang').value = cfg.lang; $('#setTarget').value = cfg.target; $('#setMtEmail').value = cfg.mtEmail || ''; $('#setSbar').value = store.get('sbar', 'black'); $('#setDoc').value = store.get('docscroll', '1'); syncThemeUI();
   $('#setGClientId').value = cfg.gClientId;
   $('#setSyncPages').checked = cfg.syncPages;
   $('#setSyncAuto').checked = cfg.syncAuto;
@@ -4392,6 +4397,7 @@ $('#openSettings2').onclick = openSettings;
 dlgSet.addEventListener('close', () => {
   if (dlgSet.returnValue !== 'ok') return;
   cfg.proxy = $('#setProxy').value.trim(); cfg.lang = $('#setLang').value; cfg.target = $('#setTarget').value;
+  cfg.imgProxy = $('#setImgProxy').value.trim(); store.set('imgProxy', cfg.imgProxy);
   store.set('proxy', cfg.proxy); store.set('lang', cfg.lang); store.set('target', cfg.target);
   cfg.mtEmail = $('#setMtEmail').value.trim(); store.set('mtEmail', cfg.mtEmail);
   const sbChanged = $('#setSbar').value !== store.get('sbar', 'black'); store.set('sbar', $('#setSbar').value); store.set('docscroll', $('#setDoc').value);
@@ -4417,9 +4423,9 @@ $('#prefFile').onchange = async e => {
     const j = JSON.parse(await f.text());
     if (!j || j.app !== 'lecteur-chapitres' || typeof j.data !== 'object') throw new Error('format');
     Object.entries(j.data).forEach(([k, v]) => { if (typeof v === 'string') store.set(k, v); });
-    cfg.proxy = store.get('proxy', cfg.proxy); cfg.lang = store.get('lang', cfg.lang); cfg.target = store.get('target', 'fr');
+    cfg.proxy = store.get('proxy', cfg.proxy); cfg.imgProxy = store.get('imgProxy', cfg.imgProxy || ''); cfg.lang = store.get('lang', cfg.lang); cfg.target = store.get('target', 'fr');
     applyTheme(); syncThemeUI(); renderLib();
-    $('#setProxy').value = cfg.proxy; $('#setLang').value = cfg.lang; $('#setTarget').value = cfg.target;
+    $('#setProxy').value = cfg.proxy; $('#setImgProxy').value = cfg.imgProxy || ''; $('#setLang').value = cfg.lang; $('#setTarget').value = cfg.target;
     toast('Préférences importées.');
   } catch { toast('Ce fichier n\'est pas une sauvegarde valide.'); }
 };
