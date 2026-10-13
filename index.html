@@ -1208,24 +1208,34 @@ async function syncNow(interactive, onStatus) {
 
 /* ---------- Réseau ---------- */
 const viaProxy = u => cfg.proxy ? cfg.proxy + encodeURIComponent(u) : null;
+/* Proxys de secours, essayés automatiquement seulement si un proxy est renseigné dans les réglages */
+const BACKUP_PROXIES = ['https://corsproxy.io/?url=', 'https://api.codetabs.com/v1/proxy?quest='];
+const proxyChain = u => [viaProxy(u)].concat(cfg.proxy ? BACKUP_PROXIES.map(p => p + encodeURIComponent(u)) : []);
 async function tryFetch(urls, kind) {
   let last = new Error('Aucun accès possible'), best = null;
-  for (const u of urls.filter(Boolean)) {
+  const list = urls.filter(Boolean);
+  for (let i = 0; i < list.length; i++) {
+    const u = list[i];
     try {
-      const r = await fetch(u, { referrerPolicy: 'no-referrer', signal: AbortSignal.timeout ? AbortSignal.timeout(25000) : undefined });
+      const r = await fetch(u, { referrerPolicy: 'no-referrer', signal: AbortSignal.timeout ? AbortSignal.timeout(i < 2 ? 25000 : 12000) : undefined });
       if (!r.ok) {
         const er = new Error('code ' + r.status); er.status = r.status;
         if (kind === 'text') { const body = await r.text().catch(() => ''); er.blocked = looksBlocked(body); }
         throw er;
       }
-      return await (kind === 'text' ? r.text() : r.blob());
+      if (kind === 'text') {
+        const body = await r.text();
+        if (looksBlocked(body) && i < list.length - 1) { const er = new Error('blocked'); er.blocked = true; throw er; }
+        return body;
+      }
+      return await r.blob();
     } catch (e) { if (!best || (e.status && !best.status)) best = e; last = e; }
   }
   throw best || last;
 }
-const fetchText = u => tryFetch([u, viaProxy(u)], 'text');
+const fetchText = u => tryFetch([u].concat(proxyChain(u)), 'text');
 async function fetchBlob(u) {
-  const b = await tryFetch([u, viaProxy(u)], 'blob');
+  const b = await tryFetch([u].concat(proxyChain(u)), 'blob');
   if (!b.size || (b.type && !/^image\//.test(b.type) && b.type !== 'application/octet-stream')) throw new Error('Ce fichier n\'est pas une image');
   return b;
 }
@@ -1321,11 +1331,13 @@ function parseUnit(str) {
 }
 const pathOf = u => (u || '').replace(/^https?:\/\/[^/]+/i, '').split(/[?#]/)[0];
 const unitRank = s => { const u = parseUnit(s); return u && (u.kind === 'volume' || u.kind === 'tome') ? 1 : 0; };
+/* Un numéro de chapitre au-delà de 3000 est presque toujours un identifiant ou une date, pas un vrai chapitre */
+const sane = n => (n != null && isFinite(n) && n >= 0 && n <= 3000) ? n : null;
 function chapterNumFromUrl(u) {
   const p = pathOf(u), m = parseUnit(p);
-  if (m) return m.num;
-  const n = p.replace(/\/+$/, '').split('/').pop().match(/^(\d+(?:[.,]\d+)?)$/);
-  return n ? parseFloat(n[1].replace(',', '.')) : null;
+  if (m && sane(m.num) != null) return m.num;
+  const n = p.replace(/\/+$/, '').split('/').pop().match(/^(\d{1,4}(?:[.,]\d+)?)$/);
+  return n ? sane(parseFloat(n[1].replace(',', '.'))) : null;
 }
 /* « 12 chapitres · 3 volumes » */
 function countLabel(list) {
@@ -1357,7 +1369,19 @@ function findChapterLinks(doc, base, seriesUrl, opts) {
     const alt = collect(u => u.pathname.startsWith(prefix) && /^[^/]*\d[^/]*\/?$/.test(u.pathname.slice(prefix.length)));
     if (alt.length > out.length) out = alt;
   }
-  out.sort((a, b) => unitRank(pathOf(a.url)) - unitRank(pathOf(b.url)) || (chapterNumFromUrl(a.url) ?? 1e9) - (chapterNumFromUrl(b.url) ?? 1e9));
+  /* Écarte les chapitres d'AUTRES séries (« dernières sorties », « populaires »…) : l'adresse doit contenir le nom du manga */
+  let slug = '';
+  try { slug = norm(decodeURIComponent(new URL(seriesUrl).pathname.replace(/\/+$/, '').split('/').pop() || '')).replace(/ /g, '-'); } catch {}
+  if (slug.length >= 3) {
+    const mine = out.filter(l => norm(decodeURIComponent(pathOf(l.url))).replace(/ /g, '-').includes(slug));
+    if (mine.length >= 2 && mine.length < out.length) out = mine;
+  }
+  /* Numéro délirant (identifiant, date…) et aucun autre numéro valable : ce n'est pas un chapitre */
+  out = out.filter(l => chapLabel(l).num != null || !(parseUnit(l.text || '') || parseUnit(pathOf(l.url))));
+  out.forEach((l, i) => { const c = chapLabel(l); l._n = c.num; l._r = i; l._u = unitRank(c.label); });
+  /* Si la page liste du plus récent au plus ancien, l'ordre de la page sert de repli quand le numéro manque */
+  out.sort((a, b) => a._u - b._u || (a._n ?? Infinity) - (b._n ?? Infinity) || b._r - a._r);
+  out.forEach(l => { delete l._n; delete l._r; delete l._u; });
   return out;
 }
 
@@ -1862,8 +1886,12 @@ async function discoverSite(input, say) {
     }
   }
   if (!catalogUrl && first.length >= 3) catalogUrl = u.href;
-  if (!catalogUrl) throw new Error('Je n\'ai pas trouvé la liste des titres de ce site. Colle plutôt l\'adresse de sa page « catalogue » ou « liste ».');
-  return { id: newId(), host, origin: u.origin, catalogUrl, searchTpl: search, addedAt: Date.now() };
+  if (!catalogUrl) {
+    const ix = await discoverIndex(u.origin, say);
+    if (ix) return { id: newId(), host, origin: u.origin, catalogUrl: null, index: ix.index, indexType: ix.indexType, searchTpl: search, addedAt: Date.now() };
+    throw new Error('Je n\'ai pas trouvé la liste des titres de ce site. Colle plutôt l\'adresse de sa page « catalogue » ou « liste ».');
+  }
+  return { id: newId(), host, origin: u.origin, catalogUrl, index: null, indexType: null, searchTpl: search, addedAt: Date.now() };
 }
 
 /* Pagination */
@@ -2000,13 +2028,23 @@ async function fetchSeries(url, opts) {
 }
 function chapLabel(l) {
   const u = parseUnit(l.text || '') || parseUnit(pathOf(l.url));
-  if (u) return { label: KIND_LABEL[u.kind] + ' ' + u.numText, num: u.num };
+  if (u && sane(u.num) != null) return { label: KIND_LABEL[u.kind] + ' ' + u.numText, num: u.num };
   const n = chapterNumFromUrl(l.url);
   return { label: n != null ? 'Chapitre ' + n : (l.text || 'Chapitre'), num: n };
 }
 const nk = u => (u || '').replace(/#.*$/, '').replace(/\/+$/, '');
 async function mergeChapters(m, links, via) {
-  const have = new Set(((await idb.listChapters()) || []).filter(c => c.mangaId === m.id).map(c => nk(c.source)));
+  const mine = ((await idb.listChapters()) || []).filter(c => c.mangaId === m.id);
+  const have = new Set(mine.map(c => nk(c.source)));
+  const bySrc = new Map(mine.map(c => [nk(c.source), c]));
+  const fix = [];
+  for (const l of links) {
+    const ex = bySrc.get(nk(l.url));
+    if (!ex || !/^(?:Chapitre|Épisode|Volume|Tome|Chapter) /i.test(ex.title || '')) continue;
+    const { label, num } = chapLabel(l);
+    if (ex.title !== label || ex.num !== num) { ex.title = label; ex.num = num; fix.push(ex); }
+  }
+  if (fix.length) await idb.putChapters(fix);
   const add = [];
   for (const l of links) {
     if (have.has(nk(l.url))) continue;
@@ -2138,17 +2176,167 @@ function appendCards(items) {
     card.querySelector('.name').textContent = it.title;
     card.querySelector('.ph').textContent = it.title.trim()[0]?.toUpperCase() || '?';
     setCover(card.querySelector('.cover'), it.cover, it.title);
+    if (!it.cover && it.lazy) lazyCover(card, it);
     card.onclick = () => openFromSource(sv.src, it, card);
     grid.appendChild(card);
   });
 }
 
+/* ---------- Index complet d'un site (quand il n'a pas de page « catalogue ») ----------
+   1) l'API WordPress du site (titres + couvertures)  2) ses plans de site (sitemap.xml) */
+const WP_TYPES = ['wp-manga', 'manga', 'series', 'comic', 'comics', 'webtoon', 'manhwa', 'project', 'projet'];
+const decEnt = s => { const t = document.createElement('textarea'); t.innerHTML = s || ''; return t.value; };
+const slugTitle = u => {
+  let last = ''; try { last = decodeURIComponent(new URL(u).pathname.replace(/\/+$/, '').split('/').pop() || ''); } catch {}
+  return last.replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim().replace(/(^|\s)\S/g, c => c.toUpperCase());
+};
+async function wpIndexPage(src, page, q) {
+  const url = src.origin + '/wp-json/wp/v2/' + src.indexType + '?per_page=100&page=' + page + '&_embed=wp:featuredmedia' +
+    '&_fields=link,title,_links,_embedded' + (q ? '&search=' + encodeURIComponent(q) : '');
+  const raw = await fetchText(url);
+  const data = JSON.parse(raw);
+  if (!Array.isArray(data)) throw new Error('format');
+  return data.filter(p => p && p.link && p.title).map(p => {
+    const m = p._embedded && p._embedded['wp:featuredmedia'] && p._embedded['wp:featuredmedia'][0];
+    return { url: p.link.split('?')[0], title: clean(decEnt(p.title.rendered || '')).slice(0, 100) || slugTitle(p.link), cover: (m && m.source_url) || null };
+  });
+}
+async function sitemapDocs(origin) {
+  const found = [];
+  try {
+    const robots = await fetchText(origin + '/robots.txt');
+    (robots.match(/^\s*sitemap:\s*(\S+)/gim) || []).forEach(l => found.push(l.replace(/^\s*sitemap:\s*/i, '').trim()));
+  } catch {}
+  ['/sitemap_index.xml', '/sitemap.xml', '/wp-sitemap.xml', '/manga-sitemap.xml', '/series-sitemap.xml', '/sitemap-index.xml'].forEach(p => found.push(origin + p));
+  return [...new Set(found)].filter(u => { try { return new URL(u).origin === origin; } catch { return false; } });
+}
+const SM_GOOD = /manga|series|serie|comic|webtoon|manhwa|manhua|projet|project|titre|title|catalog|novel/i;
+const SM_BAD = /chapter|chapitre|episode|post-sitemap|page-sitemap|category|categor|tag|author|user|image|news|blog|taxonomy/i;
+async function sitemapIndex(origin, onStatus) {
+  const parse = t => new DOMParser().parseFromString(t, 'text/xml');
+  const items = new Map();
+  let todo = [], fetched = 0;
+  const readUrlset = xml => {
+    const urls = [...xml.getElementsByTagNameNS('*', 'url')];
+    const mine = [];
+    urls.forEach(el => {
+      const locs = [...el.getElementsByTagNameNS('*', 'loc')].map(x => clean(x.textContent));
+      if (!locs[0]) return;
+      let u; try { u = new URL(locs[0]); } catch { return; }
+      if (u.origin !== origin || u.search || u.pathname === '/' || /\.(?:jpe?g|png|webp|gif|svg|css|js|xml|pdf|zip)$/i.test(u.pathname)) return;
+      const lm = el.getElementsByTagNameNS('*', 'lastmod')[0];
+      mine.push({ url: u.origin + u.pathname, cover: locs.slice(1).find(x => /\.(?:jpe?g|png|webp|avif)(?:\?|$)/i.test(x)) || null, t: lm ? Date.parse(lm.textContent) || 0 : 0 });
+    });
+    return mine;
+  };
+  for (const root of await sitemapDocs(origin)) {
+    if (items.size >= 50) break;
+    try {
+      const xml = parse(await fetchText(root)); fetched++;
+      if (xml.getElementsByTagName('parsererror').length) continue;
+      const sm = [...xml.getElementsByTagNameNS('*', 'sitemap')].map(el => clean((el.getElementsByTagNameNS('*', 'loc')[0] || {}).textContent)).filter(Boolean);
+      if (sm.length) {
+        todo = sm.filter(u => SM_GOOD.test(u) && !SM_BAD.test(u)).slice(0, 15);
+        for (const u of todo) {
+          onStatus && onStatus('Lecture du plan du site… (' + (++fetched) + ')');
+          try {
+            const x = parse(await fetchText(u));
+            const list = readUrlset(x);
+            const chapLike = list.filter(i => CH_LINK_RE.test(pathOf(i.url))).length;
+            if (list.length && chapLike / list.length > 0.5) continue;
+            list.forEach(i => { if (!CH_LINK_RE.test(pathOf(i.url)) && !NOT_SERIES.test(pathOf(i.url))) items.set(i.url, i); });
+          } catch (e) { if (e.blocked) throw e; }
+        }
+      } else {
+        const list = readUrlset(xml);
+        const chapLike = list.filter(i => CH_LINK_RE.test(pathOf(i.url))).length;
+        if (list.length && chapLike / list.length > 0.5) continue;
+        list.forEach(i => { if (!CH_LINK_RE.test(pathOf(i.url)) && !NOT_SERIES.test(pathOf(i.url)) && pathDepth(i.url) >= 1) items.set(i.url, i); });
+      }
+      if (items.size >= 5) break;
+    } catch (e) { if (e.blocked) throw e; }
+  }
+  let list = [...items.values()].map(i => ({ url: i.url, title: slugTitle(i.url), cover: i.cover, lazy: !i.cover, t: i.t }));
+  list = list.filter(i => i.title.length >= 2);
+  if (list.filter(i => i.t).length > list.length / 2) list.sort((a, b) => b.t - a.t);
+  else list.sort((a, b) => a.title.localeCompare(b.title, 'fr', { sensitivity: 'base', numeric: true }));
+  return list;
+}
+async function discoverIndex(origin, say) {
+  say && say('Recherche de la liste complète des titres…');
+  for (const type of WP_TYPES) {
+    try {
+      const src = { origin, indexType: type };
+      const items = await wpIndexPage(src, 1, '');
+      if (items.length >= 3) return { index: 'wp', indexType: type };
+    } catch (e) { if (e.blocked) throw e; }
+  }
+  say && say('Lecture du plan du site…');
+  const list = await sitemapIndex(origin, say).catch(e => { if (e.blocked) throw e; return []; });
+  if (list.length >= 5) return { index: 'sitemap', indexType: null };
+  return null;
+}
+/* Couvertures des cartes sans image : lues sur la page du manga, 3 à la fois, seulement quand la carte est visible */
+const covQ = []; let covBusy = 0; const covCache = new Map();
+function covPump() {
+  while (covBusy < 3 && covQ.length) {
+    const { card, it, tok } = covQ.shift();
+    if (tok !== sv.token) continue;
+    covBusy++;
+    (async () => {
+      try {
+        let c = covCache.get(it.url);
+        if (c === undefined) { const { doc } = await fetchDoc(it.url); c = findCover(doc, it.url); covCache.set(it.url, c || null); }
+        if (c && tok === sv.token) setCover(card.querySelector('.cover'), c, it.title);
+      } catch {} finally { covBusy--; covPump(); }
+    })();
+  }
+}
+const covIO = 'IntersectionObserver' in window ? new IntersectionObserver(es => es.forEach(e => {
+  if (!e.isIntersecting) return;
+  covIO.unobserve(e.target); const d = e.target._cov; if (d) { covQ.push(d); covPump(); }
+}), { rootMargin: '200px' }) : null;
+function lazyCover(card, it) { if (covIO) { card._cov = { card, it, tok: sv.token }; covIO.observe(card); } }
+/* Chargement du catalogue d'un site « sans page catalogue » */
+async function indexLoad() {
+  const tok = sv.token, src = sv.src; sv.busy = true;
+  smsg(sv.loaded ? 'Chargement de la suite…' : (sv.q ? 'Recherche…' : 'Chargement des titres du site…'));
+  try {
+    let items = [];
+    if (src.index === 'wp') {
+      const page = sv.loaded ? sv.page + 1 : 1;
+      try { items = await wpIndexPage(src, page, sv.q); }
+      catch (e) { if (page === 1) throw e; items = []; }
+      if (tok !== sv.token) return;
+      sv.loaded = true; sv.page = page;
+      if (items.length < 100) sv.done = true;
+    } else {
+      if (!sv.all || sv.allFor !== src.id) {
+        const all = await sitemapIndex(src.origin, t => { if (tok === sv.token) smsg(t); });
+        if (tok !== sv.token) return;
+        sv.all = all; sv.allFor = src.id;
+      }
+      const list = sv.q ? hitsOnly(sv.all, sv.q) : sv.all;
+      items = list.slice(sv.pos, sv.pos + 60); sv.pos += 60; sv.loaded = true;
+      if (sv.pos >= list.length) sv.done = true;
+    }
+    items = items.filter(i => !sv.seen.has(i.url)); items.forEach(i => sv.seen.add(i.url));
+    sv.count += items.length;
+    appendCards(items);
+    if (!sv.count) smsg(sv.q ? 'Aucun résultat pour « ' + sv.q + ' ».' : 'Aucun titre trouvé sur ce site.');
+    else { smsg(sv.done ? 'Fin de la liste.' : ''); if (!sv.done) sRearm(); }
+  } catch (e) {
+    if (tok === sv.token) { sv.done = true; smsg(siteError(e), true); }
+  } finally { if (tok === sv.token) sv.busy = false; }
+}
+
 async function sourceLoad(reset) {
   if (reset) {
     sv.token++; sv.busy = false; sv.loaded = false; sv.done = false; sv.seen = new Set();
-    sv.next = []; sv.page = 1; sv.count = 0; $('#sGrid').innerHTML = '';
+    sv.next = []; sv.page = 1; sv.count = 0; sv.pos = 0; $('#sGrid').innerHTML = '';
   }
   if (sv.busy || sv.done || !sv.src) return;
+  if (sv.src.index && !sv.tag) return indexLoad();
   const tok = sv.token; sv.busy = true;
   smsg(sv.loaded ? 'Chargement de la suite…' : (sv.q ? 'Recherche…' : 'Chargement du catalogue…'));
   let note = '';
@@ -2211,12 +2399,12 @@ async function openSource(src, opts) {
   $('#sHelp').hidden = true; $('#sForm').hidden = false; smsg('');
   const blockedView = () => { $('#sForm').hidden = true; smsg(siteError({ blocked: true }), true); $('#sHelp').hidden = false; };
   if (src.blocked && sv.tag) { blockedView(); return; }
-  if (!src.catalogUrl && !sv.tag) {
+  if (!src.catalogUrl && !src.index && !sv.tag) {
     if (src.blocked) { blockedView(); return; }
     smsg('Analyse du site…');
     try {
       const found = await discoverSite(src.origin + '/', t => { if (sv.src === src) smsg(t); });
-      Object.assign(src, { catalogUrl: found.catalogUrl, searchTpl: found.searchTpl || null, blocked: false }); saveSource(src);
+      Object.assign(src, { catalogUrl: found.catalogUrl, index: found.index || null, indexType: found.indexType || null, searchTpl: found.searchTpl || null, blocked: false }); saveSource(src);
     } catch (e) {
       if (sv.src !== src) return;
       if (blockedErr(e)) { src.blocked = true; saveSource(src); renderSources(); blockedView(); return; }
@@ -2315,7 +2503,7 @@ $('#addForm').addEventListener('submit', async e => {
   const btn = $('#addGo'); btn.disabled = true; btn.textContent = 'Analyse…';
   try {
     const found = await discoverSite(u.href, t => siteSay(t));
-    const src = ensureSource(u.href, { catalogUrl: found.catalogUrl, searchTpl: found.searchTpl || null, blocked: false });
+    const src = ensureSource(u.href, { catalogUrl: found.catalogUrl, index: found.index || null, indexType: found.indexType || null, searchTpl: found.searchTpl || null, blocked: false });
     siteSay(''); dlgAdd.close(); showView('browse'); openSource(src);
   } catch (err) {
     if (blockedErr(err)) {
@@ -3471,7 +3659,7 @@ $('#form').addEventListener('submit', async e => {
   } catch (err) {
     if (blockedErr(err)) {
       const src = ensureSource(url);
-      if (src && !src.catalogUrl && !src.blocked) { src.blocked = true; saveSource(src); renderSources(); }
+      if (src && !src.catalogUrl && !src.index && !src.blocked) { src.blocked = true; saveSource(src); renderSources(); }
       siteSay(siteError({ blocked: true }) + ' Le site est quand même ajouté à tes sources.', true, true);
     } else {
       say('Impossible de lire cette page. Le site bloque sans doute les lectures automatiques, ou aucune image n\'a été trouvée. ' +
