@@ -2048,6 +2048,7 @@ async function fetchSeries(url, opts) {
   if (be) { try { base = new URL(be.getAttribute('href'), url).href; } catch {} }
   const det = parseSeriesDoc(doc, base, url);
   if (!det.chapters.length && /wp-manga|manga-chapters-holder|madara/i.test(html)) det.chapters = await madaraChapters(url);
+  if (!det.chapters.length) det.chapters = payloadLinks(html, base, url);
   det.chapters = completeChapters(det.chapters, html, doc);
   det.valid = opts && (opts.title || opts.slug) ? seriesValid(det, doc, url, opts.title, opts.slug) : true;
   return det;
@@ -2079,6 +2080,25 @@ function completeChapters(chs, html, doc) {
     if (out.length + gaps.length <= want + 2) out = out.concat(gaps.map(mk));
   }
   return out;
+}
+/* Quand la page n'a aucun lien de chapitre « visible » : on cherche leurs adresses dans le code de la page (données JSON, scripts…) */
+function payloadLinks(html, base, url) {
+  let origin; try { origin = new URL(base).origin; } catch { return []; }
+  const slug = (typeof seriesSlug === 'function' ? seriesSlug(url) : '') || '';
+  const t = html.replace(/\\u002F/gi, '/').replace(/\\\//g, '/').replace(/\\"/g, '"').replace(/&amp;/g, '&');
+  const seen = new Set(), out = [], re = /["'(]((?:https?:\/\/[^"'\s)<>]+)|(?:\/[^"'\s)<>]+))["')]/g; let m;
+  while ((m = re.exec(t))) {
+    let u; try { u = new URL(m[1], base); } catch { continue; }
+    if (u.origin !== origin) continue;
+    const path = u.pathname;
+    if (!CH_LINK_RE.test(path) || /\.(?:jpe?g|png|webp|gif|svg|css|js)$/i.test(path)) continue;
+    if (slug && !norm(path).includes(norm(slug))) continue;
+    const href = u.origin + path;
+    if (seen.has(href)) continue; seen.add(href);
+    const l = { url: href, text: '' }; l._n = chapLabel(l).num; l._r = out.length; l._u = 0;
+    out.push(l);
+  }
+  return out.length >= 1 ? out : [];
 }
 function chapLabel(l) {
   const u = parseUnit(pathOf(l.url)) || parseUnit(l.text || '');   // l'adresse est fiable ; le texte peut coller la date au numéro
